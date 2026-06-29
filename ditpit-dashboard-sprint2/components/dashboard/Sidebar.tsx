@@ -4,12 +4,12 @@ import { useDashboard, type Tab } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
 import LayerPanel from "./LayerPanel";
 import StatsPanel from "./StatsPanel";
-import DownloadPanel from "./DownloadPanel";
+import ExportPanel from "./ExportPanel";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "layer", label: "Layer", icon: "layers" },
   { id: "statistik", label: "Statistik", icon: "chart" },
-  { id: "unduh", label: "Unduh", icon: "download" },
+  { id: "ekspor", label: "Ekspor", icon: "download" },
 ];
 
 export default function Sidebar() {
@@ -50,7 +50,7 @@ export default function Sidebar() {
         <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === "layer" && <LayerPanel />}
           {tab === "statistik" && <StatsPanel />}
-          {tab === "unduh" && <DownloadPanel />}
+          {tab === "ekspor" && <ExportPanel />}
         </div>
 
         <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-3 text-xs text-muted">

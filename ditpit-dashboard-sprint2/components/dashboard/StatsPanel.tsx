@@ -1,5 +1,6 @@
 "use client";
 
+import { useDashboard } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
 
 const CARDS = [
@@ -9,13 +10,14 @@ const CARDS = [
 ];
 
 export default function StatsPanel() {
+  const { province } = useDashboard();
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
         <Icon name="mappin" className="h-4 w-4" />
-        <span className="font-mono text-foreground">Indonesia</span>
+        <span className="font-mono text-foreground">Provinsi {province}</span>
         <span className="opacity-40">›</span>
-        <span className="opacity-70">Pilih provinsi</span>
+        <span className="opacity-70">Pilih kab/kota</span>
       </div>
 
       <div className="grid grid-cols-1 gap-3">

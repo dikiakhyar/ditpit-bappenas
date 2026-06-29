@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useDashboard } from "@/lib/dashboard-context";
-import { LAYERS, GEOMETRY_META } from "@/lib/layers";
+import { LAYERS } from "@/lib/layers";
+import { Swatch } from "@/components/ui/Swatch";
 import { Icon } from "@/components/ui/icons";
 
 export default function MapContainer() {
@@ -89,7 +90,7 @@ export default function MapContainer() {
       </div>
 
       {/* legenda */}
-      <div className="absolute bottom-3 right-3 max-w-[190px] rounded-lg border border-white/10 bg-black/35 p-3 text-white/80 backdrop-blur">
+      <div className="absolute bottom-3 right-3 max-h-[55%] max-w-[210px] overflow-y-auto rounded-lg border border-white/10 bg-black/40 p-3 text-white/80 backdrop-blur">
         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/50">
           Legenda
         </p>
@@ -97,12 +98,11 @@ export default function MapContainer() {
           <p className="text-[11px] text-white/45">Belum ada layer aktif.</p>
         ) : (
           <ul className="flex flex-col gap-1">
-            {activeLayers.slice(0, 6).map((l) => (
+            {activeLayers.map((l) => (
               <li key={l.id} className="flex items-center gap-2 text-[11px]">
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: `var(${GEOMETRY_META[l.geometry].varName})` }}
-                />
+                <span className="shrink-0">
+                  <Swatch layer={l} size={14} />
+                </span>
                 <span className="truncate">{l.name}</span>
               </li>
             ))}

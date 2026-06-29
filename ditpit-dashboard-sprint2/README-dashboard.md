@@ -1,59 +1,70 @@
-# Kerangka Dashboard GIS — DITPIT Bappenas (Sprint 2)
+# Dashboard GIS — DITPIT Bappenas (Sprint 2 · revisi layer + ekspor PNG)
 
-Struktur bersih, modern, responsif, dan **siap ditempeli MapLibre**. Belum ada
-database / GeoJSON / PMTiles — sesuai permintaan.
+Kerangka dashboard yang siap ditempeli MapLibre. Revisi ini mengganti taksonomi
+layer agar sesuai kebutuhan wilayah (Maluku, Maluku Utara, NTB, NTT) dan
+mengganti unduh GeoJSON/CSV dengan **ekspor peta ke PNG** berjudul + legenda
+yang dibuat otomatis. **Tanpa dependensi baru** — cukup `npm run dev`.
 
-## Penempatan file
-
-Salin folder ke root project `ditpit-bappenas` (timpa file lama bila perlu):
+## Penempatan file (timpa file lama bila perlu)
 
 ```
 app/
-  globals.css        ← timpa
-  layout.tsx         ← timpa
-  page.tsx           ← timpa
-  icon.png           ← favicon dari Logo Bappenas (Next.js otomatis pakai)
-  favicon.ico        ← hapus favicon.ico bawaan dulu, ganti dengan ini
+  globals.css   layout.tsx   page.tsx   icon.png   favicon.ico
 components/
-  dashboard/  (DashboardShell, TopBar, Sidebar, MapContainer, LayerPanel, StatsPanel, DownloadPanel)
-  ui/         (icons.tsx)
+  dashboard/  DashboardShell, TopBar, Sidebar, MapContainer,
+              LayerPanel, StatsPanel, ExportPanel        ← (DownloadPanel dihapus)
+  ui/         icons.tsx, Swatch.tsx                      ← Swatch.tsx baru
 lib/
-  layers.ts            ← registry layer (sumber tunggal)
-  dashboard-context.tsx
+  layers.ts            ← registry layer (sumber tunggal) — DIUBAH
+  dashboard-context.tsx← state provinsi + judul ekspor   — DIUBAH
+  export-map.ts        ← penyusun PNG (Canvas 2D)         — BARU
 public/
-  logo.png           ← logo untuk header
+  logo.png
 ```
 
-> **Catatan src/** — Jika project memakai `src/app`, pindahkan `components/` dan
-> `lib/` ke dalam `src/`. Alias `@/*` bawaan create-next-app sudah menunjuk ke
-> root yang tepat, jadi import `@/components/...` & `@/lib/...` tetap jalan.
+> **src/** — jika project memakai `src/app`, pindahkan `components/` & `lib/` ke
+> dalam `src/`. Alias `@/*` tetap menunjuk ke root yang benar.
 
-Tidak ada dependensi baru. Cukup:
+## Sumber tunggal: `lib/layers.ts`
 
-```bash
-npm run dev
-```
+Semua layer didefinisikan di satu tempat. Mengubah/menambah layer = mengubah satu
+entri; panel, legenda peta, dan legenda PNG ikut otomatis. Tiap layer punya
+**warna & simbol kartografis sendiri** (bukan sekadar warna per-geometri) supaya
+peta tematik terbaca dan legenda bermakna.
 
-## Yang sudah jadi
+Layer saat ini:
 
-- Layout dashboard: TopBar + Sidebar + Map (full-bleed) — responsif sampai mobile (sidebar jadi drawer).
-- **Layer Manager** berkelompok (Admin / Tematik / Infrastruktur): switch on/off, slider opacity, master toggle per grup.
-- Warna kategori diambil dari logo Bappenas → jadi **legenda fungsional**: biru = poligon, emas = garis, hijau = titik.
-- Panel Statistik & Unduh (kerangka, siap diisi).
-- HUD koordinat + legenda melayang di atas peta (glass panel).
-- Dark / light mode (ikut sistem, bisa di-toggle).
+- **Batas Administrasi**: Provinsi, Kabupaten/Kota, Kecamatan (digambar sebagai
+  garis batas). Pemilih provinsi: Maluku / Maluku Utara / NTB / NTT.
+- **Tematik · Penggunaan Lahan** (area): Perkebunan, Ladang, Sawah, Garam,
+  Tambak, Permukiman, Kawasan Konservasi & Taman Nasional.
+- **Tematik · Jaringan Jalan** (garis): Nasional, Provinsi, Kabupaten/Kota,
+  Lokal, Lain, Setapak.
+- **Tematik · Fasilitas Pendidikan** (titik): Tinggi, Menengah, Dasar.
+- **Tematik · Fasilitas Kesehatan** (titik): Rumah Sakit, Puskesmas Utama,
+  Puskesmas Pembantu.
+- **Tematik · Transportasi** (titik): Pelabuhan, Bandara.
 
-## Mengaktifkan MapLibre (Sprint 3)
+## Ekspor PNG (tab "Ekspor")
 
-Buka `components/dashboard/MapContainer.tsx`. Blok kode MapLibre sudah ditulis
-sebagai komentar — tinggal:
+- Input **judul** deskriptif → langsung tampil di kepala PNG. Kosong = judul
+  otomatis dari provinsi terpilih.
+- **Pratinjau live** ter-generate saat mengetik / mengubah layer.
+- **Legenda otomatis** dari layer aktif, dikelompokkan per sub-grup, plus tanggal,
+  panah utara, skala, dan footer sumber.
+- Implementasi `lib/export-map.ts` murni Canvas 2D — tidak menambah dependensi.
 
-1. `import maplibregl from "maplibre-gl";` dan `import "maplibre-gl/dist/maplibre-gl.css";` di atas file.
-2. Buka komentar blok `useEffect` inisialisasi peta.
-3. Hapus handler `onMove` placeholder (koordinat akan diisi event peta asli).
+## Mengaktifkan MapLibre (Sprint 3) + tangkapan peta asli pada PNG
 
-## Menambah layer (Sprint 4+)
+Buka `components/dashboard/MapContainer.tsx`, blok MapLibre sudah ditulis sebagai
+komentar. Saat inisialisasi peta, tambahkan **`preserveDrawingBuffer: true`** agar
+kanvas WebGL bisa ditangkap. Lalu pada `ExportPanel`, oper kanvas peta ke
+`renderMapExport(canvas, { ..., mapImage: mapRef.current.getCanvas() })` —
+exporter akan otomatis menggambar tangkapan peta menggantikan area pratinjau.
 
-Cukup tambah satu entri di `lib/layers.ts`. Sidebar, legenda, dan daftar unduh
-ikut otomatis. Saat data siap, isi `source` (path GeoJSON/PMTiles) lalu sinkronkan
-di blok `useEffect [layerState]` pada `MapContainer.tsx`.
+## Catatan
+
+- File ini revisi struktur/UI; **belum** memuat GeoJSON/PMTiles (sesuai
+  permintaan, basemap belum disentuh).
+- `app/layout.tsx` memakai Geist via `next/font/google` — perlu akses jaringan
+  ke Google Fonts saat build (di Vercel aman).

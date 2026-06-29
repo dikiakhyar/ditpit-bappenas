@@ -8,10 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { LAYERS, type GroupId } from "@/lib/layers";
+import { LAYERS, PROVINCES, type GroupId, type Province } from "@/lib/layers";
 
 type Theme = "light" | "dark";
-export type Tab = "layer" | "statistik" | "unduh";
+export type Tab = "layer" | "statistik" | "ekspor";
 interface LayerState {
   visible: boolean;
   opacity: number;
@@ -24,10 +24,15 @@ interface DashboardCtx {
   setTab: (t: Tab) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
+  province: Province;
+  setProvince: (p: Province) => void;
+  exportTitle: string;
+  setExportTitle: (s: string) => void;
   layerState: Record<string, LayerState>;
   toggleLayer: (id: string) => void;
   setOpacity: (id: string, v: number) => void;
   setGroupVisible: (group: GroupId, v: boolean) => void;
+  setSubgroupVisible: (group: GroupId, subgroup: string | undefined, v: boolean) => void;
   activeCount: number;
 }
 
@@ -37,6 +42,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
   const [tab, setTab] = useState<Tab>("layer");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [province, setProvince] = useState<Province>(PROVINCES[0]);
+  const [exportTitle, setExportTitle] = useState("");
   const [layerState, setLayerState] = useState<Record<string, LayerState>>(() =>
     Object.fromEntries(
       LAYERS.map((l) => [
@@ -73,6 +80,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       return next;
     });
 
+  const setSubgroupVisible = (
+    group: GroupId,
+    subgroup: string | undefined,
+    v: boolean
+  ) =>
+    setLayerState((s) => {
+      const next = { ...s };
+      LAYERS.filter((l) => l.group === group && l.subgroup === subgroup).forEach((l) => {
+        next[l.id] = { ...next[l.id], visible: v };
+      });
+      return next;
+    });
+
   const activeCount = useMemo(
     () => Object.values(layerState).filter((l) => l.visible).length,
     [layerState]
@@ -85,10 +105,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setTab,
     sidebarOpen,
     setSidebarOpen,
+    province,
+    setProvince,
+    exportTitle,
+    setExportTitle,
     layerState,
     toggleLayer,
     setOpacity,
     setGroupVisible,
+    setSubgroupVisible,
     activeCount,
   };
 
