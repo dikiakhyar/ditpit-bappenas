@@ -3,11 +3,13 @@
 import { useDashboard, type Tab } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
 import LayerPanel from "./LayerPanel";
+import MakroPanel from "./MakroPanel";
 import StatsPanel from "./StatsPanel";
 import ExportPanel from "./ExportPanel";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "layer", label: "Layer", icon: "layers" },
+  { id: "makro", label: "Makro", icon: "grid" },
   { id: "statistik", label: "Statistik", icon: "chart" },
   { id: "ekspor", label: "Ekspor", icon: "download" },
 ];
@@ -35,20 +37,21 @@ export default function Sidebar() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-medium transition-colors ${
                 tab === t.id
                   ? "bg-primary text-primary-fg"
                   : "text-muted hover:bg-surface-2 hover:text-foreground"
               }`}
             >
-              <Icon name={t.icon} className="h-4 w-4" />
-              <span>{t.label}</span>
+              <Icon name={t.icon} className="h-4 w-4 shrink-0" />
+              <span className="truncate">{t.label}</span>
             </button>
           ))}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === "layer" && <LayerPanel />}
+          {tab === "makro" && <MakroPanel />}
           {tab === "statistik" && <StatsPanel />}
           {tab === "ekspor" && <ExportPanel />}
         </div>

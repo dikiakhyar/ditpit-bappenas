@@ -127,6 +127,34 @@ body {
 }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* ── tooltip choropleth (MapLibre popup) ── */
+.ml-popup .maplibregl-popup-content {
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.ml-popup .maplibregl-popup-tip {
+  border-top-color: var(--surface);
+  border-bottom-color: var(--surface);
+}
+.mlp { min-width: 150px; font-family: var(--font-geist-sans); }
+.mlp-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 8px 10px 6px; background: var(--surface-2);
+  font-size: 12.5px; font-weight: 600; color: var(--foreground);
+}
+.mlp-head span { font-size: 10px; font-weight: 500; color: var(--muted); }
+.mlp-ind { padding: 6px 10px 0; font-size: 10.5px; color: var(--muted); line-height: 1.3; }
+.mlp-val { padding: 1px 10px 4px; font-size: 16px; font-weight: 700; color: var(--primary); }
+.mlp-rank {
+  padding: 4px 10px 8px; font-size: 11px; color: var(--foreground);
+  border-top: 1px solid var(--border);
+}
+.mlp-rank b { color: var(--primary); }
+
 @media (prefers-reduced-motion: reduce) {
   .map-pulse { animation: none; }
   *, *::before, *::after { transition: none !important; }
