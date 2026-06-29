@@ -9,8 +9,9 @@ import { Swatch } from "@/components/ui/Swatch";
 import { Icon } from "@/components/ui/icons";
 
 // Basemap gratis CARTO (tanpa API key). Mengikuti tema terang/gelap dashboard.
+// Voyager = bergaya OSM (berwarna, ada jalan & label); Dark Matter untuk gelap.
 const BASEMAP = {
-  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+  light: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
   dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
 } as const;
 
