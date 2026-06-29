@@ -26,6 +26,7 @@ export default function MapContainer() {
   const mapRef = useRef<MlMap | null>(null);
   const { activeCount, layerState, theme } = useDashboard();
   const [coord, setCoord] = useState({ lng: 124, lat: -5 });
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   // Inisialisasi peta sekali. maplibre-gl di-import dinamis agar tidak
   // dievaluasi saat SSR (library ini butuh `window`).
@@ -46,6 +47,19 @@ export default function MapContainer() {
         attributionControl: { compact: true }, // attribution OSM + CARTO (lisensi)
       });
       map.on("mousemove", (e) => setCoord({ lng: e.lngLat.lng, lat: e.lngLat.lat }));
+
+      // Status & diagnosa: kalau basemap berhasil/gagal dimuat, beri tahu.
+      map.on("load", () => {
+        setStatus("ready");
+        map?.resize(); // jaga-jaga bila kontainer sempat 0px saat init
+      });
+      map.on("error", (e) => {
+        // Error tile/style biasanya muncul di sini (mis. CDN diblokir jaringan).
+        console.error("[MapLibre]", e?.error?.message ?? e);
+        setStatus((s) => (s === "ready" ? s : "error"));
+      });
+      // Bila 10 detik tak kunjung 'load', anggap basemap tak terjangkau.
+      window.setTimeout(() => setStatus((s) => (s === "loading" ? "error" : s)), 10000);
 
       // Saat basemap diganti (mis. tema), MapLibre me-reset style — semua
       // source & layer data harus DITAMBAH ULANG di sini nanti.
@@ -75,6 +89,14 @@ export default function MapContainer() {
   return (
     <div className="relative min-w-0 flex-1">
       <div ref={mapEl} className="absolute inset-0" />
+
+      {/* petunjuk bila basemap tak terjangkau (mis. CDN diblokir jaringan) */}
+      {status === "error" && (
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[90%] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-center text-[12px] text-amber-900 shadow-sm">
+          Basemap belum termuat. Pastikan <span className="font-mono">basemaps.cartocdn.com</span> bisa
+          diakses dari jaringan ini (cek tab Network / Console).
+        </div>
+      )}
 
       {/* kontrol zoom (terhubung ke peta) */}
       <div className="absolute right-3 top-3 z-10 flex flex-col overflow-hidden rounded-lg border border-black/10 bg-white/80 shadow-sm backdrop-blur dark:border-white/10 dark:bg-black/40">
