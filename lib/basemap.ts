@@ -1,17 +1,15 @@
 // Registry basemap dashboard DITPIT.
 //
-// Tujuan utama: peta TIDAK PERNAH kosong. Karena itu di sini ada gaya "Polos"
-// yang sepenuhnya LOKAL (tanpa request jaringan) sehingga selalu ter-render —
-// dipakai juga sebagai fallback otomatis bila basemap CDN gagal/timeout.
-//
-// Setiap basemap punya bentuk style MapLibre: bisa URL (vektor CARTO) atau
-// objek StyleSpecification (raster Esri / latar lokal). MapContainer memuatnya
-// lalu menambahkan kembali source & layer data di event `style.load`.
+// Prinsip: peta TIDAK PERNAH kosong dan SELALU tampil tanpa perlu data —
+// persis seperti basemap di GEE. Karena itu semua basemap online memakai
+// RASTER TILE (satu endpoint gambar), bukan style vektor (yang butuh
+// style.json + sprite + glyph + tiles → banyak titik gagal di jaringan tertutup).
+// Tambahan gaya "Polos" sepenuhnya LOKAL untuk fallback offline terakhir.
 
 import type { StyleSpecification } from "maplibre-gl";
 
 export type BasemapId = "voyager" | "gelap" | "satelit" | "polos";
-export type BasemapKind = "cdn" | "raster" | "local";
+export type BasemapKind = "raster" | "local";
 
 export interface BasemapDef {
   id: BasemapId;
@@ -19,29 +17,31 @@ export interface BasemapDef {
   kind: BasemapKind;
   /** true bila tidak butuh internet sama sekali (aman di jaringan tertutup). */
   offline: boolean;
-  /** id ikon (lib/ui/icons). */
   icon: string;
 }
 
 export const BASEMAPS: BasemapDef[] = [
-  { id: "voyager", label: "Peta", kind: "cdn", offline: false, icon: "globe" },
-  { id: "gelap", label: "Gelap", kind: "cdn", offline: false, icon: "moon" },
+  { id: "voyager", label: "Peta", kind: "raster", offline: false, icon: "globe" },
   { id: "satelit", label: "Satelit", kind: "raster", offline: false, icon: "mappin" },
+  { id: "gelap", label: "Gelap", kind: "raster", offline: false, icon: "moon" },
   { id: "polos", label: "Polos", kind: "local", offline: true, icon: "layers" },
 ];
 
-const CDN = {
-  voyager: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-} as const;
+// helper: style raster 1-source dari URL template tile
+function rasterStyle(tiles: string[], attribution: string, maxzoom = 19): StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      base: { type: "raster", tiles, tileSize: 256, attribution, maxzoom },
+    },
+    layers: [{ id: "base", type: "raster", source: "base" }],
+  };
+}
 
-// Latar polos lokal — hanya satu layer background, nol request jaringan.
-// Warna mengikuti tema agar batas wilayah & choropleth tetap terbaca.
+// Latar polos lokal — hanya satu layer background, NOL request jaringan.
 function localStyle(theme: "light" | "dark"): StyleSpecification {
   return {
     version: 8,
-    // glyphs sengaja tidak diisi: layer kita (fill/line) tak butuh teks,
-    // tooltip pakai HTML popup — jadi tetap 100% offline.
     sources: {},
     layers: [
       {
@@ -53,38 +53,30 @@ function localStyle(theme: "light" | "dark"): StyleSpecification {
   };
 }
 
-// Citra satelit Esri (raster, tanpa API key). Tetap butuh internet.
-function satelliteStyle(): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      esri: {
-        type: "raster",
-        tiles: [
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        ],
-        tileSize: 256,
-        attribution:
-          "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-        maxzoom: 19,
-      },
-    },
-    layers: [{ id: "esri", type: "raster", source: "esri" }],
-  };
-}
+const CARTO_ATTR = "© OpenStreetMap, © CARTO";
+const ESRI_ATTR = "Tiles © Esri — Esri, Maxar, Earthstar Geographics, GIS Community";
 
-/** Style untuk basemap terpilih. CDN dikembalikan sebagai URL string. */
+/** Style untuk basemap terpilih. */
 export function basemapStyle(
   id: BasemapId,
   theme: "light" | "dark"
 ): string | StyleSpecification {
   switch (id) {
     case "voyager":
-      return CDN.voyager;
+      return rasterStyle(
+        ["https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"],
+        CARTO_ATTR
+      );
     case "gelap":
-      return CDN.dark;
+      return rasterStyle(
+        ["https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png"],
+        CARTO_ATTR
+      );
     case "satelit":
-      return satelliteStyle();
+      return rasterStyle(
+        ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+        ESRI_ATTR
+      );
     case "polos":
     default:
       return localStyle(theme);
