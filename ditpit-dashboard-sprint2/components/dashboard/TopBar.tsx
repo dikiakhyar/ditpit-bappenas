@@ -47,15 +47,6 @@ export default function TopBar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <label className="hidden items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs text-muted sm:flex">
-          <Icon name="globe" className="h-4 w-4" />
-          <select className="bg-transparent text-foreground outline-none" defaultValue="terang">
-            <option value="terang">Basemap Terang</option>
-            <option value="gelap">Basemap Gelap</option>
-            <option value="satelit">Citra Satelit</option>
-          </select>
-        </label>
-
         <button
           onClick={toggleTheme}
           aria-label="Ganti tema"
