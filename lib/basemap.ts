@@ -98,6 +98,16 @@ const MAPTILER_ATTR = "© MapTiler © OpenStreetMap contributors";
 // Kunci MapTiler dari .env.local (NEXT_PUBLIC_ → tersedia di sisi klien).
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "";
 
+// Diagnostik sekali jalan: tunjukkan apakah key benar-benar "terbakar" ke
+// bundle. Jika "KOSONG" → server perlu di-restart/rebuild SETELAH .env.local.
+if (typeof window !== "undefined") {
+  console.log(
+    `[basemap] MapTiler key: ${
+      MAPTILER_KEY ? `OK (${MAPTILER_KEY.length} karakter)` : "KOSONG — .env.local belum terbaca, restart/rebuild server"
+    }`
+  );
+}
+
 // Endpoint RASTER MapTiler (256px). mapId mis. "streets-v2" (jalan),
 // "hybrid" (satelit + label), "streets-v2-dark" (gelap), "satellite" (citra).
 function maptilerTiles(mapId: string, ext: "png" | "jpg" = "png"): string[] {
