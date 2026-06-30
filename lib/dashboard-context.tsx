@@ -10,7 +10,7 @@ import {
 } from "react";
 import { LAYERS, PROVINCES, type GroupId, type Province } from "@/lib/layers";
 import { MAKRO_CATEGORIES, findIndicator, type MakroData } from "@/lib/makro";
-import type { BasemapId } from "@/lib/basemap";
+import { hasMaptiler, type BasemapId } from "@/lib/basemap";
 
 type Theme = "light" | "dark";
 export type Tab = "layer" | "makro" | "statistik" | "ekspor";
@@ -97,7 +97,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   );
 
   // ── basemap ──
-  const [basemapId, setBasemapId] = useState<BasemapId>("wilayah");
+  // Default "Peta" (MapTiler) bila kunci tersedia; jika tidak, langsung
+  // "Wilayah" offline agar peta tetap tampil tanpa jaringan.
+  const [basemapId, setBasemapId] = useState<BasemapId>(
+    hasMaptiler ? "voyager" : "wilayah"
+  );
 
   // ── Data Makro ──
   const [makroOn, setMakroOn] = useState(true);

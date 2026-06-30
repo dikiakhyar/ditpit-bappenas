@@ -21,12 +21,12 @@ export interface BasemapDef {
 }
 
 export const BASEMAPS: BasemapDef[] = [
-  // Default "Wilayah" = batas kabupaten asli (GeoJSON, 100% offline) → peta
-  // SELALU tampil walau jaringan tertutup. "Peta"/"Satelit" Google hanya
-  // bekerja bila jaringan mengizinkan mt*.google.com.
-  { id: "wilayah", label: "Wilayah", kind: "local", offline: true, icon: "globe" },
-  { id: "voyager", label: "Peta", kind: "raster", offline: false, icon: "mappin" },
+  // "Peta"/"Satelit"/"Gelap" = MapTiler (butuh NEXT_PUBLIC_MAPTILER_KEY + jaringan).
+  // Bila tile MapTiler gagal/diblokir, peta OTOMATIS jatuh ke "Wilayah" (batas
+  // kabupaten asli, 100% offline) → muka utama TIDAK PERNAH kosong.
+  { id: "voyager", label: "Peta", kind: "raster", offline: false, icon: "globe" },
   { id: "satelit", label: "Satelit", kind: "raster", offline: false, icon: "mappin" },
+  { id: "wilayah", label: "Wilayah", kind: "local", offline: true, icon: "layers" },
   { id: "gelap", label: "Gelap", kind: "raster", offline: false, icon: "moon" },
   { id: "polos", label: "Polos", kind: "local", offline: true, icon: "layers" },
 ];
@@ -93,17 +93,21 @@ function localLandStyle(theme: "light" | "dark"): StyleSpecification {
   };
 }
 
-const CARTO_ATTR = "© OpenStreetMap, © CARTO"; // basemap online (opsional)
-const GOOGLE_ATTR = "© Google";
+const MAPTILER_ATTR = "© MapTiler © OpenStreetMap contributors";
 
-// Endpoint tile Google (diambil dari "Basemap Google.lyr").
-// lyrs=m Roads · lyrs=s Satelit · lyrs=y Hybrid · lyrs=p Terrain.
-// 4 subdomain mt0–mt3 untuk paralelisasi unduh tile.
-function googleTiles(lyrs: string): string[] {
-  return [0, 1, 2, 3].map(
-    (n) => `https://mt${n}.google.com/vt/lyrs=${lyrs}&x={x}&y={y}&z={z}`
-  );
+// Kunci MapTiler dari .env.local (NEXT_PUBLIC_ → tersedia di sisi klien).
+const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "";
+
+// Endpoint RASTER MapTiler (256px). mapId mis. "streets-v2" (jalan),
+// "hybrid" (satelit + label), "streets-v2-dark" (gelap), "satellite" (citra).
+function maptilerTiles(mapId: string, ext: "png" | "jpg" = "png"): string[] {
+  return [
+    `https://api.maptiler.com/maps/${mapId}/256/{z}/{x}/{y}.${ext}?key=${MAPTILER_KEY}`,
+  ];
 }
+
+/** true bila kunci MapTiler tersedia (kalau tidak, basemap online dilewati). */
+export const hasMaptiler = MAPTILER_KEY.length > 0;
 
 /** Style untuk basemap terpilih. */
 export function basemapStyle(
@@ -111,20 +115,17 @@ export function basemapStyle(
   theme: "light" | "dark"
 ): string | StyleSpecification {
   switch (id) {
+    case "voyager":
+      // MapTiler Streets — basemap jalan/standar.
+      return rasterStyle(maptilerTiles("streets-v2"), MAPTILER_ATTR);
+    case "satelit":
+      // MapTiler Hybrid — citra satelit + label jalan.
+      return rasterStyle(maptilerTiles("hybrid", "jpg"), MAPTILER_ATTR, "#0b1a2b");
+    case "gelap":
+      // MapTiler Streets (gelap).
+      return rasterStyle(maptilerTiles("streets-v2-dark"), MAPTILER_ATTR, "#0a1422");
     case "wilayah":
       return localLandStyle(theme);
-    case "voyager":
-      // Google Roads — basemap jalan/standar (dari Basemap Google.lyr).
-      return rasterStyle(googleTiles("m"), GOOGLE_ATTR);
-    case "gelap":
-      return rasterStyle(
-        ["https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png"],
-        CARTO_ATTR,
-        "#0a1422"
-      );
-    case "satelit":
-      // Google Hybrid — citra satelit + label jalan (dari Basemap Google.lyr).
-      return rasterStyle(googleTiles("y"), GOOGLE_ATTR, "#0b1a2b");
     case "polos":
     default:
       return localStyle(theme);

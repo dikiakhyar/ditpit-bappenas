@@ -47,6 +47,7 @@ export default function MapContainer() {
 
   const bakedRef = useRef<Baked | null>(null);
   const triedFallbackRef = useRef(false);
+  const tileOkRef = useRef(false); // true bila ≥1 tile basemap online berhasil dimuat
 
   const [coord, setCoord] = useState({ lng: 124, lat: -5 });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -192,34 +193,46 @@ export default function MapContainer() {
 
       map.on("mousemove", (e) => setCoord({ lng: e.lngLat.lng, lat: e.lngLat.lat }));
 
+      // pindah ke basemap offline "Wilayah" bila basemap online gagal.
+      const goFallback = () => {
+        if (!map || triedFallbackRef.current) return;
+        triedFallbackRef.current = true;
+        setUsingFallback(true);
+        setStatus("ready");
+        map.setStyle(fallbackStyle(latest.current.theme));
+      };
+
       map.on("load", () => {
         setStatus("ready");
         map?.resize();
       });
 
-      // diagnosa & fallback: hanya bila STYLE belum termuat (kegagalan basemap),
-      // bukan sekadar 1 tile gagal setelah peta sudah tampil.
-      map.on("error", (e) => {
-        console.error("[MapLibre]", e?.error?.message ?? e);
-        const styleFailed = !!map && !map.isStyleLoaded();
-        if (styleFailed && needsNetwork(latest.current.basemapId) && !triedFallbackRef.current) {
-          triedFallbackRef.current = true;
-          setUsingFallback(true);
-          setStatus("ready");
-          map?.setStyle(fallbackStyle(latest.current.theme));
+      // tandai bila ada tile basemap yang BERHASIL dimuat (sumber "base").
+      map.on("data", (e) => {
+        const ev = e as { dataType?: string; sourceId?: string; tile?: unknown };
+        if (ev.dataType === "source" && ev.sourceId === "base" && ev.tile) {
+          tileOkRef.current = true;
         }
       });
 
-      // 8 detik basemap online tak load → paksa fallback lokal
+      // fallback bila: (a) STYLE gagal termuat, ATAU (b) basemap online tapi
+      // belum ada satu pun tile yang berhasil (mis. tile diblokir jaringan).
+      map.on("error", (e) => {
+        console.error("[MapLibre]", e?.error?.message ?? e);
+        if (!map) return;
+        const online = needsNetwork(latest.current.basemapId);
+        const styleFailed = !map.isStyleLoaded();
+        const tilesBlocked = online && !tileOkRef.current;
+        if ((styleFailed || tilesBlocked) && online) goFallback();
+      });
+
+      // jaring pengaman waktu: 6 detik basemap online tak menampilkan tile apa pun
+      // → paksa fallback ke peta wilayah offline (hindari layar hitam berkepanjangan).
       window.setTimeout(() => {
         if (cancelled || !map) return;
-        if (!map.isStyleLoaded() && needsNetwork(latest.current.basemapId) && !triedFallbackRef.current) {
-          triedFallbackRef.current = true;
-          setUsingFallback(true);
-          setStatus("ready");
-          map.setStyle(fallbackStyle(latest.current.theme));
-        }
-      }, 8000);
+        const online = needsNetwork(latest.current.basemapId);
+        if (online && !tileOkRef.current && !map.areTilesLoaded()) goFallback();
+      }, 6000);
 
       // setiap style dimuat (init / ganti basemap / fallback) → pasang ulang data
       map.on("style.load", () => addMakroLayers(map!));
@@ -266,6 +279,7 @@ export default function MapContainer() {
     const map = mapRef.current;
     if (!map) return;
     triedFallbackRef.current = false;
+    tileOkRef.current = false;
     setUsingFallback(false);
     map.setStyle(basemapStyle(basemapId, theme));
     // eslint-disable-next-line react-hooks/exhaustive-deps
