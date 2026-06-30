@@ -207,6 +207,14 @@ export default function MapContainer() {
         map?.resize();
       });
 
+      // PENTING: kanvas kadang terlanjur dibuat saat kontainer belum berukuran
+      // final (layout flex/sidebar belum settle) → kanvas "kekecilan" (mis.
+      // 187×375) dan peta tak terlihat. Paksa resize beberapa kali agar kanvas
+      // menyamakan diri ke ukuran kontainer sebenarnya.
+      const forceResize = () => mapRef.current?.resize();
+      requestAnimationFrame(forceResize);
+      [120, 350, 800, 1500].forEach((ms) => window.setTimeout(forceResize, ms));
+
       // tandai bila ada tile basemap yang BERHASIL dimuat (sumber "base").
       map.on("data", (e) => {
         const ev = e as { dataType?: string; sourceId?: string; tile?: unknown };
@@ -282,6 +290,19 @@ export default function MapContainer() {
     tileOkRef.current = false;
     setUsingFallback(false);
     map.setStyle(basemapStyle(basemapId, theme));
+
+    // Jaring pengaman per-ganti-basemap: bila basemap online tapi 6 detik tak
+    // ada tile yang berhasil (mis. request menggantung karena diblokir firewall,
+    // tanpa memunculkan error) → otomatis pindah ke "Wilayah" offline + banner.
+    if (!needsNetwork(basemapId)) return;
+    const t = window.setTimeout(() => {
+      const m = mapRef.current;
+      if (!m || triedFallbackRef.current || tileOkRef.current) return;
+      triedFallbackRef.current = true;
+      setUsingFallback(true);
+      m.setStyle(fallbackStyle(theme));
+    }, 6000);
+    return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basemapId, theme]);
 
@@ -297,7 +318,10 @@ export default function MapContainer() {
 
   return (
     <div className="relative h-full min-h-0 min-w-0 flex-1 map-canvas">
-      <div ref={mapEl} className="absolute inset-0" />
+      {/* style inline width/height 100% WAJIB: maplibre-gl.css memaksa
+          .maplibregl-map ke position:relative sehingga inset-0 tak memberi
+          tinggi → div runtuh ke 0. Inline style mengalahkan CSS itu. */}
+      <div ref={mapEl} className="absolute inset-0" style={{ width: "100%", height: "100%" }} />
 
       {usingFallback && (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[90%] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-center text-[12px] text-amber-900 shadow-sm">
