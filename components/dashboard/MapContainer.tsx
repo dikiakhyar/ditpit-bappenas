@@ -17,6 +17,11 @@ const BOUNDS: [[number, number], [number, number]] = [
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
+// true bila basemap butuh internet (raster online). Basemap offline
+// (wilayah/polos) tak boleh memicu logika fallback.
+const needsNetwork = (id: BasemapId) =>
+  !(BASEMAPS.find((b) => b.id === id)?.offline ?? false);
+
 export default function MapContainer() {
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -146,17 +151,36 @@ export default function MapContainer() {
     let ro: ResizeObserver | undefined;
 
     (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      const maplibregl = await import("maplibre-gl")
+        .then((m) => m.default)
+        .catch((err) => {
+          console.error("[MapLibre] gagal memuat library:", err);
+          return null;
+        });
+      if (!maplibregl) {
+        setStatus("error");
+        return;
+      }
       if (!mapEl.current || cancelled) return;
 
-      map = new maplibregl.Map({
-        container: mapEl.current,
-        style: basemapStyle(latest.current.basemapId, latest.current.theme),
-        bounds: BOUNDS,
-        fitBoundsOptions: { padding: 36 },
-        canvasContextAttributes: { preserveDrawingBuffer: true },
-        attributionControl: { compact: true },
-      });
+      // diagnosa ukuran kontainer — 0px = penyebab umum peta kosong/putih
+      const rect = mapEl.current.getBoundingClientRect();
+      console.log("[MapContainer] ukuran area peta:", Math.round(rect.width), "x", Math.round(rect.height), "px");
+
+      try {
+        map = new maplibregl.Map({
+          container: mapEl.current,
+          style: basemapStyle(latest.current.basemapId, latest.current.theme),
+          bounds: BOUNDS,
+          fitBoundsOptions: { padding: 36 },
+          canvasContextAttributes: { preserveDrawingBuffer: true },
+          attributionControl: { compact: true },
+        });
+      } catch (err) {
+        console.error("[MapLibre] gagal inisialisasi peta (WebGL tidak tersedia?):", err);
+        setStatus("error");
+        return;
+      }
       mapRef.current = map;
       popupRef.current = new maplibregl.Popup({
         closeButton: false,
@@ -178,7 +202,7 @@ export default function MapContainer() {
       map.on("error", (e) => {
         console.error("[MapLibre]", e?.error?.message ?? e);
         const styleFailed = !!map && !map.isStyleLoaded();
-        if (styleFailed && latest.current.basemapId !== "polos" && !triedFallbackRef.current) {
+        if (styleFailed && needsNetwork(latest.current.basemapId) && !triedFallbackRef.current) {
           triedFallbackRef.current = true;
           setUsingFallback(true);
           setStatus("ready");
@@ -189,7 +213,7 @@ export default function MapContainer() {
       // 8 detik basemap online tak load → paksa fallback lokal
       window.setTimeout(() => {
         if (cancelled || !map) return;
-        if (!map.isStyleLoaded() && latest.current.basemapId !== "polos" && !triedFallbackRef.current) {
+        if (!map.isStyleLoaded() && needsNetwork(latest.current.basemapId) && !triedFallbackRef.current) {
           triedFallbackRef.current = true;
           setUsingFallback(true);
           setStatus("ready");
@@ -258,7 +282,7 @@ export default function MapContainer() {
   const fb = BASEMAPS.find((b) => b.id === basemapId);
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative h-full min-h-0 min-w-0 flex-1 map-canvas">
       <div ref={mapEl} className="absolute inset-0" />
 
       {usingFallback && (

@@ -7,9 +7,12 @@ import MapContainer from "./MapContainer";
 
 function Layout() {
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
+    <div
+      className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground"
+      style={{ height: "100vh" }}
+    >
       <TopBar />
-      <div className="relative flex flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <Sidebar />
         <MapContainer />
       </div>
