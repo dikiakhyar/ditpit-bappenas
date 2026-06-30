@@ -97,7 +97,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   );
 
   // ── basemap ──
-  const [basemapId, setBasemapId] = useState<BasemapId>("voyager");
+  const [basemapId, setBasemapId] = useState<BasemapId>("wilayah");
 
   // ── Data Makro ──
   const [makroOn, setMakroOn] = useState(true);

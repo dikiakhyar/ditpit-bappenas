@@ -21,12 +21,12 @@ export interface BasemapDef {
 }
 
 export const BASEMAPS: BasemapDef[] = [
-  // Default "Peta" = tile Google Roads (dari Basemap Google.lyr). Bila Google
-  // tak terjangkau, peta otomatis jatuh ke "Wilayah" (GeoJSON, 100% offline)
-  // sehingga muka utama TIDAK PERNAH kosong.
-  { id: "voyager", label: "Peta", kind: "raster", offline: false, icon: "globe" },
+  // Default "Wilayah" = batas kabupaten asli (GeoJSON, 100% offline) → peta
+  // SELALU tampil walau jaringan tertutup. "Peta"/"Satelit" Google hanya
+  // bekerja bila jaringan mengizinkan mt*.google.com.
+  { id: "wilayah", label: "Wilayah", kind: "local", offline: true, icon: "globe" },
+  { id: "voyager", label: "Peta", kind: "raster", offline: false, icon: "mappin" },
   { id: "satelit", label: "Satelit", kind: "raster", offline: false, icon: "mappin" },
-  { id: "wilayah", label: "Wilayah", kind: "local", offline: true, icon: "layers" },
   { id: "gelap", label: "Gelap", kind: "raster", offline: false, icon: "moon" },
   { id: "polos", label: "Polos", kind: "local", offline: true, icon: "layers" },
 ];
@@ -67,17 +67,18 @@ function localStyle(theme: "light" | "dark"): StyleSpecification {
   };
 }
 
-// Basemap WILAYAH — 100% offline, digambar dari GeoJSON yang sudah ada di
-// public/data (same-origin, NOL request ke server tile eksternal). Memberi
-// peta wilayah yang langsung tampil walau internet/CDN diblokir total.
+// Basemap WILAYAH — 100% offline, digambar dari batas kabupaten asli
+// (Maluku & Nusa Tenggara) yang sudah disederhanakan ke ~120 KB di
+// public/data/maluku_nusra.geojson. Same-origin, NOL request tile eksternal,
+// jadi peta wilayah LANGSUNG tampil walau internet/CDN/Google diblokir total.
 function localLandStyle(theme: "light" | "dark"): StyleSpecification {
-  const sea = theme === "dark" ? "#0a1422" : "#bcd6ef";
-  const land = theme === "dark" ? "#1c2c40" : "#eaf0e1";
-  const coast = theme === "dark" ? "rgba(255,255,255,0.22)" : "rgba(70,100,70,0.45)";
+  const sea = theme === "dark" ? "#0b1b2e" : "#aacbe6";
+  const land = theme === "dark" ? "#23415e" : "#f3efe2";
+  const coast = theme === "dark" ? "rgba(180,205,235,0.55)" : "rgba(90,120,90,0.7)";
   return {
     version: 8,
     sources: {
-      wilayah: { type: "geojson", data: "/data/kabkota.geojson" },
+      wilayah: { type: "geojson", data: "/data/maluku_nusra.geojson" },
     },
     layers: [
       { id: "laut", type: "background", paint: { "background-color": sea } },
@@ -86,7 +87,7 @@ function localLandStyle(theme: "light" | "dark"): StyleSpecification {
         id: "garis-pantai",
         type: "line",
         source: "wilayah",
-        paint: { "line-color": coast, "line-width": 0.9 },
+        paint: { "line-color": coast, "line-width": 0.7 },
       },
     ],
   };
