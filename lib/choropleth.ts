@@ -7,11 +7,14 @@ import {
   rankKey,
   getNumber,
   getRaw,
-  quantileBreaks,
+  numericScale,
+  paletteOf,
   stepColorExpression,
   categoricalColorExpression,
   type MakroData,
   type Indicator,
+  type NumericScale,
+  type PaletteId,
 } from "@/lib/makro";
 
 // tipe GeoJSON longgar
@@ -33,6 +36,8 @@ export interface Baked {
   ind: Indicator;
   numeric: boolean;
   breaks: number[]; // batas kuantil (numeric)
+  scale: NumericScale; // batas + warna per kelas
+  palette: PaletteId;
   min: number | null;
   max: number | null;
   colorExpr: unknown; // ekspresi fill-color MapLibre
@@ -56,7 +61,7 @@ export function bake(
 ): Baked | null {
   const found = findIndicator(indId);
   if (!found || !kabkota) return null;
-  const { ind } = found;
+  const { ind, cat } = found;
   const numeric = (ind.kind ?? "numeric") === "numeric";
   const vKey = valueKey(indId, year);
   const rKey = rankKey(indId, year);
@@ -90,9 +95,11 @@ export function bake(
     return { ...f, properties: props };
   });
 
-  const breaks = numeric ? quantileBreaks(nums) : [];
+  const palette = paletteOf(ind, cat);
+  const scale: NumericScale = numeric && nums.length ? numericScale(nums, palette) : { breaks: [], colors: [] };
+  const breaks = scale.breaks;
   const colorExpr = numeric
-    ? stepColorExpression(breaks)
+    ? stepColorExpression(scale)
     : categoricalColorExpression(ind.classes ?? []);
 
   return {
@@ -100,6 +107,8 @@ export function bake(
     ind,
     numeric,
     breaks,
+    scale,
+    palette,
     min: nums.length ? Math.min(...nums) : null,
     max: nums.length ? Math.max(...nums) : null,
     colorExpr,

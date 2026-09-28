@@ -43,3 +43,7 @@ next-env.d.ts
 
 # paket zip hasil unduhan/perbaikan yang diekstrak di root proyek
 /*.zip
+
+# SHP sumber batas wilayah (±200 MB, melebihi batas GitHub) — yang di-commit hasil konversinya
+# (public/data/wilayah.topo.json, darat.geojson). Lihat DATA-MAKRO.md.
+/components/KabKotaPIT.*

@@ -1,6 +1,8 @@
 // Indeks wilayah ringan untuk pencarian di header (dari daftar wilayah Database PIT).
 // [kode BPS, nama, kode provinsi induk ("0" untuk provinsi)]. Jangan diedit manual —
 // perbarui bersama profil.json bila daftar wilayah berubah.
+import { MAP_KAB_CODES, MAP_PROV_CODES } from "./peta-wilayah";
+
 export type WilayahRow = readonly [kode: string, nama: string, induk: string];
 export const WILAYAH: readonly WilayahRow[] = [
   ["5200", "Nusa Tenggara Barat", "0"],
@@ -229,9 +231,11 @@ export const provOfCode = (c: string) => (isProvCode(c) ? c : BY_CODE.get(c)?.[2
 export const namaWilayah = (c: string) => BY_CODE.get(c)?.[1] ?? c;
 export const hasWilayah = (c: string) => BY_CODE.has(c);
 
-/** Provinsi yang dicakup peta tematik (lihat lib/layers.ts → PROVINCES). */
-export const MAP_PROV_CODES = ["5200", "5300", "8100", "8200"] as const;
-export const onMap = (c: string) => (MAP_PROV_CODES as readonly string[]).includes(provOfCode(c));
+/** Provinsi & kab/kota yang punya batas di peta tematik (dibangkitkan dari SHP —
+ *  lihat scripts/build-map-data.mjs). Kode lama sebelum pemekaran Papua tidak ada di peta. */
+export { MAP_PROV_CODES, MAP_KAB_CODES } from "./peta-wilayah";
+const ON_MAP = new Set<string>([...MAP_PROV_CODES, ...MAP_KAB_CODES]);
+export const onMap = (c: string) => ON_MAP.has(c);
 
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, " ").replace(/\b(kab|kabupaten)\b/g, "").replace(/\s+/g, " ").trim();

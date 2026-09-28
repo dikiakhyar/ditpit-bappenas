@@ -3,12 +3,14 @@
 import { useDashboard } from "@/lib/dashboard-context";
 import { Swatch } from "@/components/ui/Swatch";
 import { Icon } from "@/components/ui/icons";
+import { MAP_BOUNDS } from "@/lib/peta-wilayah";
+import { overviewPadding } from "@/lib/basemap";
+import { MAP_PROV_CODES, namaWilayah, provOfCode } from "@/lib/wilayah";
 import {
   LAYERS,
   GROUPS,
   SUBGROUPS,
   GEOMETRY_META,
-  PROVINCES,
   type LayerDef,
   type GroupId,
   type Geometry,
@@ -73,25 +75,32 @@ function GroupCount({ on, total }: { on: number; total: number }) {
 }
 
 export default function LayerPanel() {
-  const { layerState, setGroupVisible, setSubgroupVisible, province, setProvince } =
+  const { layerState, setGroupVisible, setSubgroupVisible, selectedKode, setSelectedKode, mapInstance } =
     useDashboard();
+  const provSel = selectedKode ? provOfCode(selectedKode) : "";
+  const provList = [...MAP_PROV_CODES].sort((a, b) => namaWilayah(a).localeCompare(namaWilayah(b), "id"));
 
   const isOn = (l: LayerDef) => !!layerState[l.id]?.visible;
 
   return (
     <div className="flex flex-col gap-5 p-4">
-      {/* pemilih provinsi */}
+      {/* fokus provinsi: memperbesar peta ke provinsi terpilih */}
       <label className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs">
         <Icon name="mappin" className="h-4 w-4 shrink-0 text-primary" />
-        <span className="shrink-0 text-muted">Provinsi</span>
+        <span className="shrink-0 text-muted">Fokus</span>
         <select
-          value={province}
-          onChange={(e) => setProvince(e.target.value as typeof province)}
+          value={provSel}
+          onChange={(e) => {
+            const v = e.target.value;
+            setSelectedKode(v || null);
+            if (!v) mapInstance?.fitBounds(MAP_BOUNDS, { padding: overviewPadding(mapInstance.getContainer()), duration: 900 });
+          }}
           className="min-w-0 flex-1 bg-transparent text-right font-medium text-foreground outline-none"
         >
-          {PROVINCES.map((p) => (
+          <option value="">Seluruh wilayah ({MAP_PROV_CODES.length} provinsi)</option>
+          {provList.map((p) => (
             <option key={p} value={p}>
-              {p}
+              {namaWilayah(p)}
             </option>
           ))}
         </select>

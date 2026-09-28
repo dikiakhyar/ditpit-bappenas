@@ -12,13 +12,13 @@ export interface MakroLegend {
 }
 
 export function makroLegend(b: Baked, year: number | null, totalFeatures: number): MakroLegend {
-  const { ind, numeric, breaks, min, max, count } = b;
+  const { ind, numeric, scale, min, max, count } = b;
   const title = `${ind.label}${year ? ` · ${year}` : ""}`;
   const parts: string[] = [];
   if (ind.unit) parts.push(ind.unit);
   if (numeric) parts.push(`kelas kuantil · ${count} kab/kota`);
   const classes: LegendClass[] = numeric
-    ? legendClasses(breaks, min, max).map((k) => ({
+    ? legendClasses(scale, min, max).map((k) => ({
         color: k.color,
         label: k.from === k.to ? formatValue(k.from, ind.format) : `${formatValue(k.from, ind.format)} – ${formatValue(k.to, ind.format)}`,
       }))

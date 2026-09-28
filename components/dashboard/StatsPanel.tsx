@@ -19,7 +19,7 @@ export default function StatsPanel() {
   const router = useRouter();
   const { E, error } = useProfil();
 
-  // daftar pilihan: provinsi peta + kab/kota yang punya batas di kabkota.geojson
+  // daftar pilihan: provinsi peta + kab/kota yang punya batas di wilayah.topo.json
   const options = useMemo(() => {
     const kabs = (kabkota?.features ?? [])
       .map((f) => String(f.properties?.kode ?? ""))

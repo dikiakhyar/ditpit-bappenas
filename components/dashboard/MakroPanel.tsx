@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
-import { findIndicator, formatValue, RAMP } from "@/lib/makro";
+import { colorOf, findIndicator, formatValue, numericScale, paletteOf } from "@/lib/makro";
 import DataSource from "@/components/app/DataSource";
 import { ranking } from "@/lib/choropleth";
 
@@ -43,6 +43,11 @@ export default function MakroPanel() {
   const ranked = useMemo(
     () => ranking(kabkota, makroData, makroSel.indId, makroSel.year),
     [kabkota, makroData, makroSel.indId, makroSel.year]
+  );
+  // warna titik peringkat = warna kelasnya di peta
+  const scale = useMemo(
+    () => (ind && ranked.length ? numericScale(ranked.map((r) => r.value), paletteOf(ind, found?.cat)) : null),
+    [ranked, ind, found?.cat]
   );
   const senseHigh = (ind?.sense ?? "high") === "high";
   const best = senseHigh ? ranked.slice(0, 5) : ranked.slice(-5).reverse();
@@ -152,7 +157,7 @@ export default function MakroPanel() {
               {best.map((r, i) => (
                 <li key={r.kode} className="flex items-center gap-2 text-[12px]">
                   <span className="w-4 shrink-0 text-right font-mono text-[10px] text-muted">{i + 1}</span>
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: RAMP[Math.min(RAMP.length - 1, RAMP.length - 1 - i)] }} />
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: scale ? colorOf(r.value, scale) : undefined }} />
                   <span className="flex-1 truncate">{r.nama}</span>
                   <span className="shrink-0 font-mono text-[11px] text-foreground/70">{formatValue(r.value, ind.format)}</span>
                 </li>

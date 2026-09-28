@@ -66,14 +66,14 @@ if (typeof window !== "undefined" && !hasCartoKey) {
 const esriImagery = ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"];
 const esriLabels = ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"];
 
-// Batas kab/kota lokal (public/data/maluku_nusra.geojson) — NOL request eksternal.
+// Daratan wilayah timur (public/data/darat.geojson, ±90 KB) — NOL request eksternal.
 function localLandStyle(theme: "light" | "dark"): StyleSpecification {
   const sea = theme === "dark" ? "#0b1b2e" : "#dfe8f1";
   const land = theme === "dark" ? "#23415e" : "#fbfaf6";
   const coast = theme === "dark" ? "rgba(180,205,235,0.55)" : "rgba(110,125,140,0.7)";
   return {
     version: 8,
-    sources: { wilayah: { type: "geojson", data: "/data/maluku_nusra.geojson" } },
+    sources: { wilayah: { type: "geojson", data: "/data/darat.geojson" } },
     layers: [
       { id: "laut", type: "background", paint: { "background-color": sea } },
       { id: "darat", type: "fill", source: "wilayah", paint: { "fill-color": land } },
@@ -108,4 +108,11 @@ export function basemapStyle(id: BasemapId, theme: "light" | "dark"): StyleSpeci
 /** Cadangan bila basemap online gagal: batas wilayah lokal (tetap tampil offline). */
 export function fallbackStyle(theme: "light" | "dark"): StyleSpecification {
   return localLandStyle(theme);
+}
+
+/** Padding saat menampilkan seluruh wilayah: di layar lebar, sisi kanan dikosongkan
+ *  untuk legenda agar Papua tidak tertutup. */
+export function overviewPadding(el: HTMLElement | null | undefined) {
+  const w = el?.clientWidth ?? 0;
+  return w >= 900 ? { top: 56, bottom: 48, left: 24, right: 250 } : { top: 56, bottom: 56, left: 16, right: 16 };
 }

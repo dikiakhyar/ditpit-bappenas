@@ -5,17 +5,17 @@ import { useSearchParams } from "next/navigation";
 import type { Map as MlMap, MapGeoJSONFeature, Popup, GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useDashboard } from "@/lib/dashboard-context";
-import { basemapStyle, fallbackStyle, BASEMAPS, type BasemapId } from "@/lib/basemap";
+import { basemapStyle, fallbackStyle, overviewPadding, BASEMAPS, type BasemapId } from "@/lib/basemap";
 import { bake, type Baked } from "@/lib/choropleth";
 import { formatValue, findIndicator } from "@/lib/makro";
 import { makroLegend } from "@/lib/legend";
 import { Icon } from "@/components/ui/icons";
+import { MAP_BOUNDS } from "@/lib/peta-wilayah";
+import { LAYERS } from "@/lib/layers";
 
-// Cakupan 4 provinsi: NTB (barat) → Maluku (timur). [[W,S],[E,N]]
-const BOUNDS: [[number, number], [number, number]] = [
-  [115.5, -11.2],
-  [135.6, 2.7],
-];
+// Cakupan peta: 16 provinsi wilayah timur (Sulawesi, Nusa Tenggara, Maluku, Papua) —
+// dihitung dari data batas (lib/peta-wilayah.ts). [[W,S],[E,N]]
+const BOUNDS = MAP_BOUNDS;
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
@@ -39,6 +39,8 @@ export default function MapContainer() {
     makroOpacity,
     makroSel,
     kabkota,
+    provinsi,
+    layerState,
     makroData,
     dataStatus,
     selectedKode,
@@ -50,8 +52,8 @@ export default function MapContainer() {
   const params = useSearchParams();
 
   // refs "nilai terbaru" agar handler peta & re-add style memakai data kini
-  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, makroData, selectedKode });
-  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, makroData, selectedKode };
+  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState });
+  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState };
   const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
@@ -101,6 +103,12 @@ export default function MapContainer() {
         },
       } as never);
     }
+    // batas administrasi (layer "Provinsi" & "Kabupaten / Kota" di tab Layer)
+    for (const [id, srcId] of [["kab-outline", "batas-kab"], ["prov-outline", "batas-prov"]] as const) {
+      if (!map.getSource(srcId)) map.addSource(srcId, { type: "geojson", data: EMPTY_FC as never });
+      if (!map.getLayer(id)) map.addLayer({ id, type: "line", source: srcId, layout: { "line-join": "round" }, paint: {} } as never);
+    }
+    applyBoundaries(map);
     if (!map.getLayer("makro-selected")) {
       map.addLayer({
         id: "makro-selected",
@@ -114,6 +122,33 @@ export default function MapContainer() {
       } as never);
     }
     applyChoropleth(map);
+  }
+
+  // data & gaya garis batas provinsi / kab-kota (warna menyesuaikan basemap)
+  function applyBoundaries(map: MlMap) {
+    const cur = latest.current;
+    const sat = cur.basemapId === "satelit";
+    const set = (srcId: string, geo: unknown) => {
+      const src = map.getSource(srcId) as GeoJSONSource | undefined;
+      const key = geo ? "1" : "0";
+      if (src && (src as unknown as { __k?: string }).__k !== key) {
+        src.setData((geo ?? EMPTY_FC) as never);
+        (src as unknown as { __k?: string }).__k = key;
+      }
+    };
+    set("batas-kab", cur.kabkota);
+    set("batas-prov", cur.provinsi);
+    const style = (id: string, layerId: string, color: string, satColor: string) => {
+      if (!map.getLayer(id)) return;
+      const def = LAYERS.find((l) => l.id === layerId);
+      const st = cur.layerState[layerId];
+      map.setLayoutProperty(id, "visibility", st?.visible ? "visible" : "none");
+      map.setPaintProperty(id, "line-color", sat ? satColor : color);
+      map.setPaintProperty(id, "line-width", ["interpolate", ["linear"], ["zoom"], 4, (def?.weight ?? 1) * 0.55, 8, def?.weight ?? 1]);
+      map.setPaintProperty(id, "line-opacity", st?.opacity ?? 1);
+    };
+    style("kab-outline", "kabkota", "#64748b", "rgba(255,255,255,0.7)");
+    style("prov-outline", "prov", "#334155", "rgba(255,255,255,0.95)");
   }
 
   // filter garis wilayah terpilih: kab/kota → kode persis; provinsi → 2 digit awal
@@ -223,7 +258,7 @@ export default function MapContainer() {
           container: mapEl.current,
           style: basemapStyle(latest.current.basemapId, latest.current.theme),
           bounds: BOUNDS,
-          fitBoundsOptions: { padding: 36 },
+          fitBoundsOptions: { padding: overviewPadding(mapEl.current) },
           canvasContextAttributes: { preserveDrawingBuffer: true },
           attributionControl: { compact: true },
         });
@@ -373,6 +408,13 @@ export default function MapContainer() {
     if (map.isStyleLoaded() && map.getSource("kabkota")) applyChoropleth(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [makroSel, makroOn, makroOpacity, kabkota, makroData]);
+
+  // batas administrasi: data dimuat / layer dinyalakan-dimatikan
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded() && map.getLayer("prov-outline")) applyBoundaries(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kabkota, provinsi, layerState]);
 
   // ?kode= dari URL (mis. tombol "Lihat di peta" di halaman Profil)
   const urlKode = params.get("kode");

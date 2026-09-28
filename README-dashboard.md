@@ -67,7 +67,7 @@ Aplikasi kini punya **dua halaman** dengan header bersama (`components/app/AppHe
 | Rute | Isi |
 |---|---|
 | `/` | **Peta Tematik** — GIS MapLibre (layer, choropleth makro, ekspor). Klik kab/kota → tab **Wilayah** menampilkan ringkasan indikator + tombol *Buka profil lengkap*. `/?kode=5310` langsung menyorot & membingkai wilayah. |
-| `/profil?kode=5310` | **Profil Daerah** — port penuh dashboard "Profil Daerah Indonesia Timur" (11 bagian, ±70 kartu: tren / peringkat / tabel, fallback ke angka provinsi). Tombol *Lihat di peta* untuk wilayah di 4 provinsi peta. |
+| `/profil?kode=5310` | **Profil Daerah** — port penuh dashboard "Profil Daerah Indonesia Timur" (11 bagian, ±70 kartu: tren / peringkat / tabel, fallback ke angka provinsi). Tombol *Lihat di peta* untuk wilayah yang ada di peta (176 kab/kota, 16 provinsi). |
 
 Pencarian wilayah di header (Ctrl K) mencari 218 provinsi & kab/kota lalu membuka profilnya.
 

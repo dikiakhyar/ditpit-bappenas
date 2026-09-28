@@ -37,6 +37,8 @@ export interface Indicator {
   sense?: Sense; // default "high"
   format?: ValFormat;
   classes?: ClassDef[]; // untuk kind "categorical"
+  /** warna peta; default: sense "low" → merah, selain itu palet kategorinya */
+  palette?: PaletteId;
   note?: string;
   src: IndicatorSrc;
   /** diisi saat runtime: tahun yang punya data (urut naik) */
@@ -48,6 +50,8 @@ export interface MakroCategory {
   id: string;
   label: string;
   icon: string;
+  /** palet default indikator di kategori ini (lihat PALETTES) */
+  palette?: PaletteId;
   indicators: Indicator[];
 }
 
@@ -98,6 +102,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "kependudukan",
     label: "Kependudukan",
     icon: "users",
+    palette: "ungu",
     indicators: [
       { id: "jumlah_penduduk", label: "Jumlah Penduduk", unit: "Ribu Jiwa", format: "ribu", note: "Dihitung: PDRB ADHB ÷ PDRB per kapita ADHB (BPS).", src: { get: pendAt, years: pdrbYears } },
       {
@@ -126,6 +131,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "ketenagakerjaan",
     label: "Ketenagakerjaan",
     icon: "briefcase",
+    palette: "hijau",
     indicators: [
       { id: "tpt", label: "Tingkat Pengangguran Terbuka (TPT)", unit: "% · Agustus", sense: "low", format: "persen", src: fromSheet("TPT", "Tingkat Pengangguran Terbuka (TPT)", agu) },
       { id: "tpak", label: "Tingkat Partisipasi Angkatan Kerja (TPAK)", unit: "% · Agustus", format: "persen", src: fromSheet("TPT", "Tingkat Partisipasi Angkatan Kerja (TPAK)", agu) },
@@ -135,10 +141,11 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "kemiskinan",
     label: "Kemiskinan & Ketimpangan",
     icon: "trending",
+    palette: "merah",
     indicators: [
       { id: "ppm", label: "Persentase Penduduk Miskin", unit: "% · Maret", sense: "low", format: "persen", src: fromSheet("Kemiskinan", "Persentase Penduduk Miskin", mar) },
       { id: "jpm", label: "Jumlah Penduduk Miskin", unit: "Ribu Jiwa · Maret", sense: "low", format: "ribu", src: fromSheet("Kemiskinan", "Jumlah Penduduk Miskin", mar) },
-      { id: "garis_kemiskinan", label: "Garis Kemiskinan", unit: "Rp/kapita/bulan · Maret", format: "rupiah", src: fromSheet("Kemiskinan", "Garis Kemiskinan", mar) },
+      { id: "garis_kemiskinan", label: "Garis Kemiskinan", unit: "Rp/kapita/bulan · Maret", format: "rupiah", palette: "biru", src: fromSheet("Kemiskinan", "Garis Kemiskinan", mar) },
       { id: "gini", label: "Rasio Gini", sense: "low", format: "rasio", src: fromSheet("Rasio Gini") },
     ],
   },
@@ -146,8 +153,9 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "ekonomi",
     label: "Ekonomi & PDRB",
     icon: "chart",
+    palette: "biru",
     indicators: [
-      { id: "lpe", label: "Laju Pertumbuhan Ekonomi (LPE)", unit: "%", format: "persen", src: fromSheet("LPE", "Produk Domestik Bruto") },
+      { id: "lpe", label: "Laju Pertumbuhan Ekonomi (LPE)", unit: "%", format: "persen", palette: "divergen", src: fromSheet("LPE", "Produk Domestik Bruto") },
       { id: "pdrb_adhb", label: "PDRB ADHB", unit: "Miliar Rp", format: "milyar", src: fromSheet("ADHB", "Produk Domestik Bruto") },
       { id: "pdrb_perkapita", label: "PDRB per Kapita ADHB", unit: "Ribu Rp/Tahun", format: "ribu", src: fromSheet("ADHB Per Kapita") },
       { id: "kontribusi_pdrb", label: "Kontribusi PDRB terhadap Provinsi", unit: "%", format: "persen", src: fromSheet("Kontribusi PDRB") },
@@ -158,6 +166,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "pembangunan_manusia",
     label: "Pembangunan Manusia",
     icon: "users",
+    palette: "hijau",
     indicators: [
       { id: "ipm", label: "Indeks Pembangunan Manusia (IPM)", format: "rasio", src: fromSheet("IPM") },
       { id: "hls", label: "Harapan Lama Sekolah (HLS)", unit: "Tahun", format: "tahun", src: fromSheet("HLS") },
@@ -169,6 +178,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "kesehatan",
     label: "Kesehatan",
     icon: "heart",
+    palette: "hijau",
     indicators: [
       { id: "stunting", label: "Prevalensi Stunting", unit: "%", sense: "low", format: "persen", src: fromSheet("Stunting", "Stunting") },
       {
@@ -186,6 +196,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "layanan",
     label: "Layanan Dasar & Infrastruktur",
     icon: "bolt",
+    palette: "toska",
     indicators: [
       { id: "air_minum", label: "RT dengan Air Minum Layak", unit: "%", format: "persen", src: fromSheet("RT Air Minum Layak") },
       { id: "sanitasi", label: "RT dengan Sanitasi Layak", unit: "%", format: "persen", src: fromSheet("RT Sanitasi Layak") },
@@ -198,6 +209,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "desa",
     label: "Indeks Desa",
     icon: "home",
+    palette: "hijau",
     indicators: [
       { id: "desa_skor", label: "Rata-rata Skor Indeks Desa", format: "skor", src: fromSheet("Desa", "Skor") },
       { id: "desa_maju", label: "Desa Maju & Mandiri", unit: "% desa", format: "persen", src: fromSheet("Desa", "Mandiri+Maju") },
@@ -208,27 +220,29 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "fiskal",
     label: "Fiskal & APBD",
     icon: "wallet",
+    palette: "biru",
     indicators: [
-      { id: "kapasitas_fiskal", label: "Rasio Kapasitas Fiskal Daerah", format: "rasio", src: fromSheet("Kapasitas Fiskal", "RFKD") },
+      { id: "kapasitas_fiskal", label: "Rasio Kapasitas Fiskal Daerah", format: "rasio", palette: "hijau", src: fromSheet("Kapasitas Fiskal", "RFKD") },
       {
         id: "kapasitas_fiskal_kategori", label: "Kategori Kapasitas Fiskal", kind: "categorical", classes: KELAS_FISKAL,
         src: { get: (E, c, y) => titleCase(fromSheet("Kapasitas Fiskal", "Kategori RKFD").get(E, c, y)), years: fromSheet("Kapasitas Fiskal", "Kategori RKFD").years },
       },
-      { id: "rasio_pad", label: "Porsi PAD dalam Pendapatan Daerah", unit: "%", format: "persen", src: fromSheet("Rasio Fiskal", "PAD/Pendapatan") },
+      { id: "rasio_pad", label: "Porsi PAD dalam Pendapatan Daerah", unit: "%", format: "persen", palette: "hijau", src: fromSheet("Rasio Fiskal", "PAD/Pendapatan") },
       { id: "rasio_belanja_pegawai", label: "Porsi Belanja Pegawai dalam Belanja Daerah", unit: "%", sense: "low", format: "persen", src: fromSheet("Rasio Fiskal", "Pegawai/Belanja") },
       { id: "apbd_pendapatan", label: "Pendapatan Daerah", unit: "Miliar Rp", format: "milyar", src: fromSheet("Postur APBD", "Pendapatan Daerah") },
       { id: "apbd_pad", label: "Pendapatan Asli Daerah (PAD)", unit: "Miliar Rp", format: "milyar", src: fromSheet("Postur APBD", "PAD") },
       { id: "apbd_tkd", label: "Transfer ke Daerah (TKD)", unit: "Miliar Rp", format: "milyar", src: fromSheet("Postur APBD", "TKD") },
       { id: "apbd_belanja", label: "Belanja Daerah", unit: "Miliar Rp", format: "milyar", src: fromSheet("Postur APBD", "Belanja Daerah") },
-      { id: "apbd_belanja_pegawai", label: "Belanja Pegawai", unit: "Miliar Rp", sense: "low", format: "milyar", src: fromSheet("Postur APBD", "Belanja Pegawai") },
+      { id: "apbd_belanja_pegawai", label: "Belanja Pegawai", unit: "Miliar Rp", sense: "low", format: "milyar", palette: "biru", src: fromSheet("Postur APBD", "Belanja Pegawai") },
     ],
   },
   {
     id: "risiko_lingkungan",
     label: "Risiko & Lingkungan",
     icon: "shield",
+    palette: "hijau",
     indicators: [
-      { id: "irbi", label: "Indeks Risiko Bencana (IRBI)", sense: "low", format: "rasio", src: fromSheet("IRBI", "IRBI") },
+      { id: "irbi", label: "Indeks Risiko Bencana (IRBI)", sense: "low", format: "rasio", palette: "oranye", src: fromSheet("IRBI", "IRBI") },
       {
         id: "irbi_kelas", label: "Kelas Risiko Bencana (IRBI)", kind: "categorical", classes: KELAS_IRBI, note: "Kelas BNPB dari skor IRBI: rendah ≤ 72, sedang 72–144, tinggi > 144.",
         src: {
@@ -250,6 +264,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     id: "tatakelola",
     label: "Tata Kelola",
     icon: "landmark",
+    palette: "hijau",
     indicators: [
       { id: "integritas", label: "Indeks Integritas (SPI KPK)", format: "rasio", src: fromSheet("Indeks Integritas") },
       { id: "ipei", label: "Indeks Pembangunan Ekonomi Inklusif (IPEI)", format: "rasio", src: fromSheet("IPEI") },
@@ -339,14 +354,47 @@ export function buildMakro(E: Engine, codes: string[]): { data: MakroData; catal
 }
 
 // ── klasifikasi & warna (choropleth numerik) ─────────────────────────────────
-// Biru sekuensial (terang→pekat). Nilai besar = pekat, apa pun "sense"-nya;
-// sense hanya menentukan ujung "terbaik" pada peringkat.
-export const RAMP = ["#eef6fc", "#cfe3f5", "#9ecae1", "#5fa6d4", "#2f7fbf", "#0b5394"];
+// Warna mengikuti KONTEKS indikator (bukan semuanya biru):
+//   hijau  = capaian/kesejahteraan — makin tinggi makin baik (IPM, air minum, indeks desa…)
+//   merah  = masalah — makin tinggi makin buruk (kemiskinan, TPT, stunting, desa tertinggal…)
+//   oranye = risiko bencana (IRBI)
+//   biru   = besaran ekonomi & keuangan (PDRB, investasi, APBD…)
+//   ungu   = kependudukan (jumlah, persentase, kepadatan)
+//   toska  = layanan dasar & infrastruktur (sanitasi, hunian, sinyal 4G…)
+//   divergen = pertumbuhan (LPE): negatif merah, positif hijau
+// Tiap palet = 6 tingkat satu warna, terang→pekat (nilai besar = pekat), lolos uji
+// keterbacaan (kecerahan monoton, beda antartingkat terlihat, ujung terang kontras
+// terhadap latar putih). Arah "baik" untuk peringkat tetap ditentukan `sense`.
+export type PaletteId = "biru" | "hijau" | "merah" | "oranye" | "ungu" | "toska" | "divergen";
+export const PALETTES: Record<Exclude<PaletteId, "divergen">, string[]> = {
+  biru: ["#85b6e9", "#559ade", "#1d7dcf", "#0362aa", "#024981", "#00315a"],
+  hijau: ["#88c28a", "#5ea968", "#2f904a", "#047437", "#02572b", "#013b1e"],
+  merah: ["#ea998b", "#dd7063", "#cb4740", "#b21621", "#8a0318", "#600110"],
+  oranye: ["#e79f5c", "#d57b2f", "#bd5a01", "#9c4103", "#7c2801", "#5b1200"],
+  ungu: ["#baa4e2", "#a083d7", "#8662c7", "#6d44b2", "#532796", "#3c007a"],
+  toska: ["#6fc1c5", "#3aa7ae", "#0b8b93", "#036e75", "#015258", "#02383d"],
+};
+const DIV_NEG = PALETTES.merah;
+const DIV_POS = PALETTES.hijau;
+export const RAMP = PALETTES.biru; // kompatibilitas
 export const NODATA = "rgba(150,160,175,0.25)";
 export const NODATA_SOLID = "#e3e7ee";
+const N_CLASSES = 6;
+
+/** Palet untuk indikator: `palette` eksplisit → sense "low" (merah) → palet kategori → biru. */
+export function paletteOf(ind: Indicator, cat?: MakroCategory): PaletteId {
+  if (ind.palette) return ind.palette;
+  if (ind.sense === "low") return "merah";
+  return cat?.palette ?? "biru";
+}
+
+/** Contoh warna palet (untuk ikon/legenda kecil). */
+export function paletteSwatch(p: PaletteId): string[] {
+  return p === "divergen" ? [DIV_NEG[3], DIV_NEG[1], DIV_POS[1], DIV_POS[3]] : PALETTES[p];
+}
 
 /** Batas kelas kuantil (k−1 batas dalam) dari nilai. */
-export function quantileBreaks(values: number[], classes = RAMP.length): number[] {
+export function quantileBreaks(values: number[], classes = N_CLASSES): number[] {
   const v = values.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
   if (v.length === 0) return [];
   const inner = Math.max(1, classes - 1);
@@ -360,20 +408,54 @@ export function quantileBreaks(values: number[], classes = RAMP.length): number[
   return uniq;
 }
 
-/** Kelas legenda dari batas kuantil: warna + rentang [dari, sampai). */
-export function legendClasses(breaks: number[], min: number | null, max: number | null): { color: string; from: number | null; to: number | null }[] {
+/** n warna tersebar merata dari palet (kelas sedikit tetap memakai rentang terang→pekat). */
+function spread(ramp: string[], n: number): string[] {
+  if (n <= 0) return [];
+  if (n === 1) return [ramp[Math.floor(ramp.length / 2)]];
+  return Array.from({ length: n }, (_, i) => ramp[Math.round((i * (ramp.length - 1)) / (n - 1))]);
+}
+
+export interface NumericScale {
+  breaks: number[]; // batas dalam (k−1)
+  colors: string[]; // k warna, satu per kelas
+}
+
+/** Kelas + warna untuk sekumpulan nilai menurut palet. */
+export function numericScale(values: number[], palette: PaletteId): NumericScale {
+  let breaks = quantileBreaks(values);
+  if (palette !== "divergen") return { breaks, colors: spread(PALETTES[palette], breaks.length + 1) };
+  // divergen: 0 selalu jadi batas kelas; kelas < 0 merah (makin negatif makin pekat), ≥ 0 hijau
+  const min = Math.min(...values), max = Math.max(...values);
+  if (min < 0 && max > 0 && !breaks.includes(0)) breaks = [...breaks, 0].sort((a, b) => a - b);
+  const nNeg = max <= 0 ? breaks.length + 1 : min < 0 ? breaks.filter((b) => b <= 0).length : 0;
+  const nPos = breaks.length + 1 - nNeg;
+  const neg = spread(DIV_NEG.slice(0, 5), nNeg).reverse();
+  const pos = spread(DIV_POS.slice(0, 5), nPos);
+  return { breaks, colors: [...neg, ...pos] };
+}
+
+/** Warna kelas untuk satu nilai. */
+export function colorOf(v: number, sc: NumericScale): string {
+  let i = 0;
+  while (i < sc.breaks.length && v >= sc.breaks[i]) i++;
+  return sc.colors[Math.min(i, sc.colors.length - 1)];
+}
+
+/** Kelas legenda: warna + rentang [dari, sampai). */
+export function legendClasses(sc: NumericScale, min: number | null, max: number | null): { color: string; from: number | null; to: number | null }[] {
   if (min == null || max == null) return [];
-  if (!breaks.length) return [{ color: RAMP[0], from: min, to: max }];
-  const out = [{ color: RAMP[0], from: min, to: breaks[0] }];
-  breaks.forEach((b, i) => out.push({ color: RAMP[Math.min(i + 1, RAMP.length - 1)], from: b, to: i + 1 < breaks.length ? breaks[i + 1] : max }));
+  const { breaks, colors } = sc;
+  if (!breaks.length) return [{ color: colors[0], from: min, to: max }];
+  const out = [{ color: colors[0], from: min, to: breaks[0] }];
+  breaks.forEach((b, i) => out.push({ color: colors[i + 1], from: b, to: i + 1 < breaks.length ? breaks[i + 1] : max }));
   return out;
 }
 
-/** Ekspresi MapLibre fill-color dari batas kuantil, baca properti "__v". */
-export function stepColorExpression(breaks: number[], nodata = NODATA): unknown {
-  if (breaks.length === 0) return ["case", ["has", "__v"], RAMP[0], nodata];
-  const step: unknown[] = ["step", ["get", "__v"], RAMP[0]];
-  breaks.forEach((b, i) => step.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]));
+/** Ekspresi MapLibre fill-color dari skala kelas, baca properti "__v". */
+export function stepColorExpression(sc: NumericScale, nodata = NODATA): unknown {
+  if (sc.breaks.length === 0) return ["case", ["has", "__v"], sc.colors[0], nodata];
+  const step: unknown[] = ["step", ["get", "__v"], sc.colors[0]];
+  sc.breaks.forEach((b, i) => step.push(b, sc.colors[i + 1]));
   return ["case", ["has", "__v"], step, nodata];
 }
 

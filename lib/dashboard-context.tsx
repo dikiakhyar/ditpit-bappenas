@@ -8,7 +8,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { LAYERS, PROVINCES, type GroupId, type Province } from "@/lib/layers";
+import { LAYERS, type GroupId } from "@/lib/layers";
+import { feature } from "topojson-client";
+import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Map as MlMap } from "maplibre-gl";
 import { MAKRO_CATEGORIES, buildMakro, findIndicator, type MakroCategory, type MakroData } from "@/lib/makro";
 import { DEFAULT_BASEMAP, type BasemapId } from "@/lib/basemap";
@@ -56,8 +58,6 @@ interface DashboardCtx {
   setTab: (t: Tab) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
-  province: Province;
-  setProvince: (p: Province) => void;
   layerState: Record<string, LayerState>;
   toggleLayer: (id: string) => void;
   setOpacity: (id: string, v: number) => void;
@@ -91,6 +91,8 @@ interface DashboardCtx {
 
   // data
   kabkota: KabKotaGeo | null;
+  /** batas provinsi (dilebur dari kab/kota) */
+  provinsi: KabKotaGeo | null;
   makroData: MakroData | null;
   dataStatus: "loading" | "ready" | "error";
   /** mesin database (Google Spreadsheet) */
@@ -104,7 +106,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>("layer");
   const [selectedKode, setSelectedKode] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [province, setProvince] = useState<Province>(PROVINCES[0]);
   const [mapInstance, setMapInstance] = useState<MlMap | null>(null);
   const [layerState, setLayerState] = useState<Record<string, LayerState>>(() =>
     Object.fromEntries(
@@ -125,16 +126,22 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [makroOpacity, setMakroOpacity] = useState(0.82);
   const [rawSel, setMakroSel] = useState<MakroSel>({ catId: MAKRO_CATEGORIES[0].id, indId: MAKRO_CATEGORIES[0].indicators[0].id, year: null });
 
-  // ── data: batas kab/kota (GeoJSON statis) + database (Google Spreadsheet) ──
-  const [kabkota, setKabkota] = useState<KabKotaGeo | null>(null);
+  // ── data: batas wilayah (TopoJSON statis, ±0,6 MB) + database (Google Spreadsheet) ──
+  const [geo, setGeo] = useState<{ kabkota: KabKotaGeo; provinsi: KabKotaGeo } | null>(null);
   const [geoError, setGeoError] = useState(false);
   const { E: engine, error: dbError } = useProfil();
+  const kabkota = geo?.kabkota ?? null;
+  const provinsi = geo?.provinsi ?? null;
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/data/kabkota.geojson")
+    fetch("/data/wilayah.topo.json")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((g) => !cancelled && setKabkota(g))
+      .then((t: Topology) => {
+        if (cancelled) return;
+        const fc = (name: string) => feature(t, t.objects[name] as GeometryCollection) as unknown as KabKotaGeo;
+        setGeo({ kabkota: fc("kabkota"), provinsi: fc("provinsi") });
+      })
       .catch(() => !cancelled && setGeoError(true));
     return () => {
       cancelled = true;
@@ -210,8 +217,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setTab,
     sidebarOpen,
     setSidebarOpen,
-    province,
-    setProvince,
     layerState,
     toggleLayer,
     setOpacity,
@@ -232,6 +237,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setMakroIndicator,
     setMakroYear,
     kabkota,
+    provinsi,
     makroData,
     dataStatus,
     engine,
