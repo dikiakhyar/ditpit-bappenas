@@ -1,13 +1,14 @@
 // Registry basemap dashboard DITPIT — semuanya GRATIS & tanpa API key.
 //
 //  • Peta    : OpenStreetMap gaya "Positron" (putih–abu, CARTO) — latar netral
-//              agar warna choropleth/layer tematik menonjol.
+//              agar warna choropleth/layer tematik menonjol. Butuh API key CARTO
+//              (gratis): env NEXT_PUBLIC_CARTO_KEY. Tanpa key, tile ber-watermark.
 //  • Satelit : Esri World Imagery + label batas & nama tempat (Esri).
 //              (Citra satelit Google tidak punya akses tile gratis yang sah —
 //               pemakaian langsung mt*.google.com melanggar ketentuan Google.)
 //  • Polos   : latar putih bersih, tanpa jaringan sama sekali.
 //
-// Semua basemap online memakai RASTER TILE (satu endpoint gambar) dan mendukung
+// Selain CARTO, semua gratis tanpa key. Semua basemap online memakai RASTER TILE (satu endpoint gambar) dan mendukung
 // CORS, sehingga peta bisa diekspor ke PNG. Bila tile gagal dimuat (jaringan
 // tertutup), peta otomatis jatuh ke gaya "Wilayah" (batas kab/kota lokal).
 
@@ -52,8 +53,16 @@ function rasterStyle(layers: { id: string; tiles: string[]; maxzoom?: number }[]
   };
 }
 
-// Positron resolusi tinggi (@2x) — tajam di layar retina & saat diekspor
-const positron = ["a", "b", "c", "d"].map((s) => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png`);
+// Positron resolusi tinggi (@2x) — tajam di layar retina & saat diekspor.
+// Key CARTO dibaca dari .env.local / env hosting (bukan ditulis di kode agar tak ikut ke Git).
+const CARTO_KEY = process.env.NEXT_PUBLIC_CARTO_KEY ?? "";
+export const hasCartoKey = CARTO_KEY.length > 0;
+const positron = [
+  `https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}@2x.png${hasCartoKey ? `?key=${encodeURIComponent(CARTO_KEY)}` : ""}`,
+];
+if (typeof window !== "undefined" && !hasCartoKey) {
+  console.warn("[basemap] NEXT_PUBLIC_CARTO_KEY kosong — basemap Peta (CARTO) akan ber-watermark. Isi di .env.local lalu restart server.");
+}
 const esriImagery = ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"];
 const esriLabels = ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"];
 

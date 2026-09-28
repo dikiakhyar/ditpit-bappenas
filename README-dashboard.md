@@ -92,6 +92,7 @@ public/data/profil.json        ← data profil (±2,7 MB, dimuat sekali per sesi
 ### Data
 - **Database = Google Spreadsheet** (dibaca langsung, tanpa git push) → lihat `DATABASE.md`.
 - **Data Makro** di peta dihitung dari database yang sama → lihat `DATA-MAKRO.md`.
-- **Basemap**: Peta (OSM Positron putih-abu), Satelit (Esri World Imagery + label), Polos (putih). Gratis, tanpa API key;
-  `NEXT_PUBLIC_MAPTILER_KEY` tidak dipakai lagi. Bila tile gagal dimuat → otomatis peta "Wilayah" offline.
+- **Basemap**: Peta (OSM Positron putih-abu, CARTO — butuh `NEXT_PUBLIC_CARTO_KEY`), Satelit (Esri World Imagery + label,
+  tanpa key), Polos (putih). `NEXT_PUBLIC_MAPTILER_KEY` tidak dipakai lagi. Bila tile gagal dimuat → otomatis peta "Wilayah" offline.
+  Daftar environment variable: `.env.example`.
 - **Ekspor**: PNG = peta persis seperti di layar + legenda simbol & keterangan (tanpa judul/tata letak).
