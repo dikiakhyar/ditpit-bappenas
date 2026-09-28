@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Map as MlMap, MapGeoJSONFeature, Popup, GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useDashboard } from "@/lib/dashboard-context";
@@ -39,11 +40,17 @@ export default function MapContainer() {
     kabkota,
     makroData,
     dataStatus,
+    selectedKode,
+    setSelectedKode,
+    setTab,
+    setSidebarOpen,
   } = useDashboard();
+  const params = useSearchParams();
 
   // refs "nilai terbaru" agar handler peta & re-add style memakai data kini
-  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, makroData });
-  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, makroData };
+  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, makroData, selectedKode });
+  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, makroData, selectedKode };
+  const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
   const triedFallbackRef = useRef(false);
@@ -92,7 +99,47 @@ export default function MapContainer() {
         },
       } as never);
     }
+    if (!map.getLayer("makro-selected")) {
+      map.addLayer({
+        id: "makro-selected",
+        type: "line",
+        source: "kabkota",
+        filter: selectionFilter(latest.current.selectedKode),
+        paint: {
+          "line-color": latest.current.theme === "dark" ? "#ffffff" : "#0b2540",
+          "line-width": 2.6,
+        },
+      } as never);
+    }
     applyChoropleth(map);
+  }
+
+  // filter garis wilayah terpilih: kab/kota → kode persis; provinsi → 2 digit awal
+  function selectionFilter(k: string | null): unknown {
+    if (!k) return ["==", ["get", "__kode"], "__none__"];
+    if (Number(k) % 100 === 0) return ["==", ["slice", ["get", "__kode"], 0, 2], k.slice(0, 2)];
+    return ["==", ["get", "__kode"], k];
+  }
+
+  // bingkai peta ke wilayah terpilih (dihitung dari geometri GeoJSON)
+  function flyToSelection(map: MlMap, k: string) {
+    const feats = (latest.current.kabkota?.features ?? []).filter((f) => {
+      const kode = String(f.properties?.kode ?? "");
+      return Number(k) % 100 === 0 ? kode.slice(0, 2) === k.slice(0, 2) : kode === k;
+    });
+    let w = Infinity, s2 = Infinity, e = -Infinity, n = -Infinity;
+    const walk = (c: unknown): void => {
+      if (Array.isArray(c) && typeof c[0] === "number") {
+        const [x, y] = c as number[];
+        if (x < w) w = x;
+        if (x > e) e = x;
+        if (y < s2) s2 = y;
+        if (y > n) n = y;
+      } else if (Array.isArray(c)) c.forEach(walk);
+    };
+    feats.forEach((f) => walk((f.geometry as { coordinates?: unknown })?.coordinates));
+    if (!Number.isFinite(w)) return;
+    map.fitBounds([[w, s2], [e, n]], { padding: 60, maxZoom: 8, duration: 900 });
   }
 
   // ── terapkan data + warna sesuai pilihan indikator ──
@@ -141,6 +188,7 @@ export default function MapContainer() {
         <div class="mlp-ind">${ind?.label ?? ""}${yr}</div>
         <div class="mlp-val">${valLine}</div>
         ${rank}
+        <div class="mlp-foot">Klik untuk ringkasan &amp; profil wilayah</div>
       </div>`;
     popupRef.current?.setLngLat([lng, lat]).setHTML(html).addTo(map);
   }
@@ -259,6 +307,14 @@ export default function MapContainer() {
         }
         showPopup(map!, f, e.lngLat.lng, e.lngLat.lat);
       });
+      map.on("click", "makro-fill", (e) => {
+        const kode = e.features?.[0]?.properties?.__kode as string | undefined;
+        if (!kode) return;
+        fromClickRef.current = true;
+        setSelectedKode(kode);
+        setTab("wilayah");
+        if (window.matchMedia("(max-width: 1023px)").matches) setSidebarOpen(true);
+      });
       map.on("mouseleave", "makro-fill", () => {
         map!.getCanvas().style.cursor = "";
         if (hoverIdRef.current != null)
@@ -314,6 +370,30 @@ export default function MapContainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [makroSel, makroOn, makroOpacity, kabkota, makroData]);
 
+  // ?kode= dari URL (mis. tombol "Lihat di peta" di halaman Profil)
+  const urlKode = params.get("kode");
+  useEffect(() => {
+    if (urlKode) {
+      setSelectedKode(urlKode);
+      setTab("wilayah");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlKode]);
+
+  // pilihan berubah → perbarui garis sorot & (bila bukan dari klik) terbang ke sana
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      if (map.getLayer("makro-selected")) map.setFilter("makro-selected", selectionFilter(selectedKode) as never);
+      if (selectedKode && !fromClickRef.current) flyToSelection(map, selectedKode);
+      fromClickRef.current = false;
+    };
+    if (map.isStyleLoaded() && map.getLayer("makro-selected")) apply();
+    else map.once("idle", apply);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKode, kabkota, status]);
+
   const fb = BASEMAPS.find((b) => b.id === basemapId);
 
   return (
@@ -325,7 +405,7 @@ export default function MapContainer() {
 
       {usingFallback && (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto w-fit max-w-[90%] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-center text-[12px] text-amber-900 shadow-sm">
-          Basemap online tak terjangkau — memakai latar <b>Polos</b> (offline). Data tetap tampil.
+          Basemap online tak terjangkau — memakai peta <b>Wilayah</b> (offline). Data tetap tampil.
         </div>
       )}
       {status === "error" && !usingFallback && (
@@ -340,7 +420,7 @@ export default function MapContainer() {
       )}
 
       {/* pemilih basemap */}
-      <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg border border-black/10 bg-white/85 shadow-sm backdrop-blur dark:border-white/10 dark:bg-black/45">
+      <div className="absolute left-3 top-3 z-10 flex overflow-hidden map-float">
         {BASEMAPS.map((b) => (
           <button
             key={b.id}
@@ -349,7 +429,7 @@ export default function MapContainer() {
             className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
               basemapId === b.id
                 ? "bg-primary text-primary-fg"
-                : "text-foreground/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10"
+                : "text-ink-2 hover:bg-surface-2 hover:text-foreground"
             }`}
           >
             <Icon name={b.icon} className="h-3.5 w-3.5" />
@@ -359,18 +439,18 @@ export default function MapContainer() {
       </div>
 
       {/* kontrol zoom */}
-      <div className="absolute right-3 top-3 z-10 flex flex-col overflow-hidden rounded-lg border border-black/10 bg-white/80 shadow-sm backdrop-blur dark:border-white/10 dark:bg-black/40">
-        <button onClick={() => mapRef.current?.zoomIn()} className="p-2 text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Perbesar">
+      <div className="absolute right-3 top-3 z-10 flex flex-col overflow-hidden map-float">
+        <button onClick={() => mapRef.current?.zoomIn()} className="p-2 text-ink-2 hover:bg-surface-2 hover:text-foreground" aria-label="Perbesar">
           <Icon name="plus" className="h-4 w-4" />
         </button>
-        <span className="h-px bg-black/10 dark:bg-white/10" />
-        <button onClick={() => mapRef.current?.zoomOut()} className="p-2 text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Perkecil">
+        <span className="h-px bg-border" />
+        <button onClick={() => mapRef.current?.zoomOut()} className="p-2 text-ink-2 hover:bg-surface-2 hover:text-foreground" aria-label="Perkecil">
           <Icon name="minus" className="h-4 w-4" />
         </button>
       </div>
 
       {/* HUD koordinat */}
-      <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-lg border border-black/10 bg-white/80 px-3 py-1.5 font-mono text-[11px] text-foreground/75 shadow-sm backdrop-blur dark:border-white/10 dark:bg-black/40 dark:text-white/75">
+      <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 map-float px-3 py-1.5 font-mono text-[11px] text-ink-2">
         <Icon name="crosshair" className="h-3.5 w-3.5" />
         <span>{coord.lat.toFixed(4)}°, {coord.lng.toFixed(4)}°</span>
         <span className="opacity-30">|</span>
@@ -389,14 +469,14 @@ function MakroLegend({ legend, on, year }: { legend: Baked | null; on: boolean; 
   const { ind, numeric, breaks, min, max, count } = legend;
 
   return (
-    <div className="absolute bottom-3 right-3 z-10 max-h-[60%] max-w-[230px] overflow-y-auto rounded-lg border border-black/10 bg-white/90 p-3 text-foreground/85 shadow-sm backdrop-blur dark:border-white/10 dark:bg-black/55 dark:text-white/85">
-      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground/50 dark:text-white/50">
+    <div className="absolute bottom-3 right-3 z-10 max-h-[60%] max-w-[230px] overflow-y-auto map-float p-3 text-foreground">
+      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
         Legenda · Data Makro
       </p>
       <p className="mb-2 text-[11.5px] font-medium leading-snug">
         {ind.label}
         {year ? ` · ${year}` : ""}
-        {ind.unit ? <span className="text-foreground/45 dark:text-white/45"> ({ind.unit})</span> : null}
+        {ind.unit ? <span className="text-muted"> ({ind.unit})</span> : null}
       </p>
 
       {numeric ? (
@@ -407,16 +487,16 @@ function MakroLegend({ legend, on, year }: { legend: Baked | null; on: boolean; 
                 <span key={i} className="flex-1" style={{ background: c }} />
               ))}
             </div>
-            <div className="mt-1 flex justify-between font-mono text-[10px] text-foreground/55 dark:text-white/55">
+            <div className="mt-1 flex justify-between font-mono text-[10px] text-muted">
               <span>{formatValue(min, ind.format)}</span>
               <span>{formatValue(max, ind.format)}</span>
             </div>
-            <p className="mt-1.5 text-[10px] text-foreground/45 dark:text-white/45">
+            <p className="mt-1.5 text-[10px] text-muted">
               Klasifikasi kuantil · {count} Kab/Kota{breaks.length ? "" : ""}
             </p>
           </>
         ) : (
-          <p className="text-[11px] text-foreground/50 dark:text-white/50">Belum ada data untuk pilihan ini.</p>
+          <p className="text-[11px] text-muted">Belum ada data untuk pilihan ini.</p>
         )
       ) : (
         <ul className="flex flex-col gap-1">

@@ -11,9 +11,9 @@ import {
 import { LAYERS, PROVINCES, type GroupId, type Province } from "@/lib/layers";
 import { MAKRO_CATEGORIES, findIndicator, type MakroData } from "@/lib/makro";
 import { hasMaptiler, type BasemapId } from "@/lib/basemap";
+import { useTheme, type Theme } from "@/lib/theme";
 
-type Theme = "light" | "dark";
-export type Tab = "layer" | "makro" | "statistik" | "ekspor";
+export type Tab = "layer" | "makro" | "wilayah" | "ekspor";
 interface LayerState {
   visible: boolean;
   opacity: number;
@@ -59,6 +59,10 @@ interface DashboardCtx {
   setSubgroupVisible: (group: GroupId, subgroup: string | undefined, v: boolean) => void;
   activeCount: number;
 
+  // wilayah terpilih (klik peta / ?kode= di URL) → panel Ringkasan & Profil
+  selectedKode: string | null;
+  setSelectedKode: (k: string | null) => void;
+
   // basemap
   basemapId: BasemapId;
   setBasemapId: (id: BasemapId) => void;
@@ -82,8 +86,9 @@ interface DashboardCtx {
 const Ctx = createContext<DashboardCtx | null>(null);
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState<Tab>("layer");
+  const [selectedKode, setSelectedKode] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [province, setProvince] = useState<Province>(PROVINCES[0]);
   const [exportTitle, setExportTitle] = useState("");
@@ -156,18 +161,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // tema awal mengikuti preferensi sistem
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setTheme(mq.matches ? "dark" : "light");
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
-
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
-
   const toggleLayer = (id: string) =>
     setLayerState((s) => ({ ...s, [id]: { ...s[id], visible: !s[id].visible } }));
 
@@ -218,6 +211,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setGroupVisible,
     setSubgroupVisible,
     activeCount,
+    selectedKode,
+    setSelectedKode,
     basemapId,
     setBasemapId,
     makroOn,

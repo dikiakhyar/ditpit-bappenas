@@ -4,8 +4,24 @@ Fitur **Data Makro** menampilkan seluruh indikator Kab/Kota sebagai **satu layer
 (poligon yang berganti warna) yang dikendalikan tiga pemilih di tab **Makro**:
 **Kategori → Indikator → Tahun**. Jadi ~150 kolom tidak menjadi ~150 toggle — panel tetap ringkas.
 
-Saat ini berjalan dengan **data contoh** di `public/data/`. Ganti dua file ini dengan data asli;
-tidak perlu mengubah kode.
+**Sumber data kini asli, bukan contoh.** Kedua file di bawah dibangkitkan otomatis oleh
+`scripts/build-map-data.mjs` dari:
+
+- `public/data/maluku_nusra.geojson` — batas 53 kab/kota (NTB, NTT, Maluku, Maluku Utara)
+- `public/data/profil.json` — Database PIT (sumber yang sama dengan halaman **Profil Daerah**)
+
+```bash
+node scripts/build-map-data.mjs   # jalankan ulang setiap kali salah satu sumber diperbarui
+```
+
+Skrip mencocokkan nama poligon ke **kode BPS** (gagal keras bila ada nama yang ambigu), lalu menghitung
+nilai tiap indikator dan peringkat provinsi (1 = terbaik menurut arah "baik" di `lib/makro.ts`).
+Indikator turunan: jumlah penduduk = PDRB ADHB ÷ PDRB per kapita (2025); persentase & kepadatan
+dihitung darinya; kelas IRBI memakai ambang BNPB. Belum ada sumbernya di profil.json:
+`sex_ratio`, `iklh_kategori`, serta TPT/TPAK Agustus 2024 — peta menampilkan "Belum ada data".
+
+> Kode lama di `kabkota.geojson` (data contoh, 26 poligon) sebagian salah — mis. poligon Kupang
+> berkode 5301 (BPS: Sumba Barat). Versi lama tetap ada di riwayat git.
 
 ## 1. `public/data/kabkota.geojson` — batas wilayah
 

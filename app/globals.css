@@ -1,70 +1,339 @@
 @import "tailwindcss";
 
-/* aktifkan dark-mode berbasis class .dark */
+/* dark-mode berbasis class .dark pada <html> */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Design tokens — bahasa visual mengacu ke Tabler (github.com/tabler/tabler, MIT):
+   latar abu sangat muda, kartu putih berbingkai tipis + header bergaris,
+   radius 6–8px, teks 14px, badge "lt" untuk status. Aksen emas diambil dari
+   logo Bappenas dan dipakai sebagai warna pembanding (provinsi) di grafik.
+   Nama token lama (surface, border, muted, primary, area/line/point) dipertahankan
+   agar komponen peta yang ada tetap jalan.
+   ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #eef1f6;
+  color-scheme: light;
+  --background: #f4f6fa;
   --surface: #ffffff;
-  --surface-2: #f4f6fa;
-  --border: #e3e8ef;
-  --foreground: #0f1b2d;
-  --muted: #5b6b85;
-  --primary: #1683c2;
+  --surface-2: #f8fafc;
+  --surface-3: #eef2f7;
+  --border: #e3e7ee;
+  --border-strong: #cfd6e0;
+  --foreground: #182433;
+  --ink-2: #4b5a6f;
+  --muted: #6b788c;
+  --primary: #066fd1;
   --primary-fg: #ffffff;
+  --primary-lt: #e7f1fb;
+  --accent: #c27d12; /* emas Bappenas */
+  --accent-lt: #fbf2e3;
 
-  /* warna kategori geometri — diambil dari logo Bappenas */
-  --area: #2487c9;   /* biru  · poligon / kawasan */
-  --line: #cf8f2c;   /* emas  · garis / jaringan  */
-  --point: #25a637;  /* hijau · titik / lokasi    */
+  --good: #1d7f37;
+  --good-lt: #e6f5ea;
+  --bad: #c42b2b;
+  --bad-lt: #fbe9e9;
+  --warn-lt: #fff6e0;
+  --warn: #8a5a00;
+
+  /* grafik */
+  --s1: #066fd1; /* wilayah terpilih */
+  --s2: #c27d12; /* provinsi */
+  --s3: #1f9d6b;
+  --natl: #8792a2; /* nasional (putus-putus) */
+  --bar-muted: #d3dae4;
+  --grid: #edf0f5;
+  --axis: #c5cdd8;
+  --ring: rgba(24, 36, 51, 0.06);
+  --shadow-card: 0 1px 2px rgba(24, 36, 51, 0.04), 0 0 0 1px rgba(24, 36, 51, 0.02);
+
+  /* status desa (sekuensial biru, Mandiri → Sangat tertinggal) */
+  --o1: #0b3f7a; --o1-fg: #ffffff;
+  --o2: #135fb0; --o2-fg: #ffffff;
+  --o3: #2f7fd6; --o3-fg: #ffffff;
+  --o4: #7fb2ea; --o4-fg: #0b2540;
+  --o5: #bcd7f5; --o5-fg: #0b2540;
+  /* kondisi ruang kelas (baik → rusak berat) */
+  --k1: #066fd1; --k1-fg: #ffffff;
+  --k2: #f3c794; --k2-fg: #3b2208;
+  --k3: #e0843a; --k3-fg: #ffffff;
+  --k4: #a8431c; --k4-fg: #ffffff;
+
+  /* warna kategori geometri (layer peta) — dari logo Bappenas */
+  --area: #2487c9;
+  --line: #cf8f2c;
+  --point: #25a637;
 
   --map-bg: #0c1422;
   --map-grid: rgba(255, 255, 255, 0.05);
-  --pulse: 22, 131, 194;
+  --pulse: 6, 111, 209;
 }
 
 .dark {
-  --background: #070d18;
-  --surface: #0f1a2c;
-  --surface-2: #0c1525;
-  --border: #1d2c45;
-  --foreground: #e6edf8;
-  --muted: #8294b2;
-  --primary: #38a8e6;
-  --primary-fg: #04121f;
+  color-scheme: dark;
+  --background: #111a26;
+  --surface: #172232;
+  --surface-2: #1b283a;
+  --surface-3: #213146;
+  --border: #26374c;
+  --border-strong: #35495f;
+  --foreground: #e3e9f1;
+  --ink-2: #b4c0d0;
+  --muted: #8797ad;
+  --primary: #3d8ee0;
+  --primary-fg: #ffffff;
+  --primary-lt: #1a3350;
+  --accent: #bd7f1f;
+  --accent-lt: #33291a;
+
+  --good: #5ccb73;
+  --good-lt: #1b3326;
+  --bad: #f07b7b;
+  --bad-lt: #3a2226;
+  --warn-lt: #3a2f16;
+  --warn: #f1c668;
+
+  --s1: #3d8ee0;
+  --s2: #bd7f1f;
+  --s3: #1f9a68;
+  --natl: #7f8ea3;
+  --bar-muted: #33465d;
+  --grid: #203045;
+  --axis: #3a4e66;
+  --ring: rgba(255, 255, 255, 0.06);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.1);
+
+  --o1: #d3e5fa; --o1-fg: #0b2540;
+  --o2: #9ec5f4; --o2-fg: #0b2540;
+  --o3: #5d9fe8; --o3-fg: #0b2540;
+  --o4: #2f73c4; --o4-fg: #ffffff;
+  --o5: #1d4f8c; --o5-fg: #ffffff;
+  --k1: #3d8ee0; --k1-fg: #ffffff;
+  --k2: #7b5a39; --k2-fg: #ffffff;
+  --k3: #d0772e; --k3-fg: #ffffff;
+  --k4: #f0a07f; --k4-fg: #3b1606;
 
   --area: #38a0e0;
   --line: #e0a445;
   --point: #36c24a;
 
-  --map-bg: #060c16;
+  --map-bg: #0a121d;
   --map-grid: rgba(255, 255, 255, 0.045);
-  --pulse: 56, 168, 230;
+  --pulse: 61, 142, 224;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-foreground: var(--foreground);
+  --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
   --color-primary: var(--primary);
   --color-primary-fg: var(--primary-fg);
+  --color-primary-lt: var(--primary-lt);
+  --color-accent: var(--accent);
+  --color-accent-lt: var(--accent-lt);
+  --color-good: var(--good);
+  --color-good-lt: var(--good-lt);
+  --color-bad: var(--bad);
+  --color-bad-lt: var(--bad-lt);
+  --color-warn: var(--warn);
+  --color-warn-lt: var(--warn-lt);
   --color-area: var(--area);
   --color-line: var(--line);
   --color-point: var(--point);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+  --shadow-card: var(--shadow-card);
 }
 
+html {
+  font-size: 14px;
+}
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  line-height: 1.43;
+  -webkit-font-smoothing: antialiased;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+select option {
+  color: #182433;
+  background: #fff;
 }
 
-/* ── kanvas peta (placeholder sebelum MapLibre aktif) ── */
+/* ── komponen dasar ala Tabler ─────────────────────────────────────────────── */
+/* dalam @layer components agar utilitas Tailwind (mis. lg:hidden) tetap bisa menimpa */
+@layer components {
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+.card-body {
+  padding: 14px 16px 16px;
+}
+.card-footer {
+  padding: 9px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 0 0 8px 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.subheader {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.badge-good { background: var(--good-lt); color: var(--good); }
+.badge-bad { background: var(--bad-lt); color: var(--bad); }
+.badge-flat { background: var(--surface-3); color: var(--ink-2); }
+.badge-blue { background: var(--primary-lt); color: var(--primary); }
+.badge-gold { background: var(--accent-lt); color: var(--accent); }
+.form-select {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238797ad' stroke-width='1.6'/%3E%3C/svg%3E")
+    no-repeat right 11px center;
+  border-radius: 6px;
+  padding: 7px 32px 7px 11px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.form-select:hover { border-color: var(--border-strong); }
+.form-select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px var(--primary-lt); }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 7px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--foreground);
+  white-space: nowrap;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
+.btn-primary:hover { background: color-mix(in oklab, var(--primary) 88%, black); border-color: transparent; }
+
+/* segmented control (Tren / Peringkat / Tabel) */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface-2);
+  flex: none;
+}
+.seg button {
+  border: 0;
+  background: none;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.seg button:hover:not(:disabled) { color: var(--foreground); }
+.seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgba(24, 36, 51, 0.12), 0 0 0 1px var(--border);
+}
+.seg button:disabled { opacity: 0.35; cursor: default; }
+}
+
+/* ── grafik SVG ─────────────────────────────────────────────────────────── */
+.viz svg { display: block; width: 100%; overflow: visible; }
+.viz text { font-family: var(--font-sans); }
+.ax text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.ax line { stroke: var(--grid); }
+.ax .base { stroke: var(--axis); }
+.lbl-ink { fill: var(--foreground); font-size: 12px; }
+.lbl-ink2 { fill: var(--ink-2); font-size: 11.5px; }
+.lbl-sel { fill: var(--foreground); font-weight: 700; font-size: 11.5px; }
+.val-t { fill: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.val-sel { fill: var(--foreground); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.row-hit { fill: transparent; }
+.row-hit:hover { fill: var(--ring); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); align-items: center; }
+.legend i { display: inline-block; width: 14px; height: 2px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.legend i.sq { width: 10px; height: 10px; border-radius: 2px; }
+.legend i.dash { background: repeating-linear-gradient(90deg, var(--natl) 0 4px, transparent 4px 7px) !important; }
+.legend i.tick { width: 3px; height: 12px; }
+.stackbar { display: flex; height: 22px; gap: 2px; border-radius: 4px; overflow: hidden; background: var(--surface-3); }
+.stackbar > span {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; min-width: 0; overflow: hidden; white-space: nowrap;
+}
+
+/* tabel data ringkas */
+table.tv { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+table.tv th, table.tv td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.tv th:first-child, table.tv td:first-child { text-align: left; }
+table.tv thead th {
+  position: sticky; top: 0; background: var(--surface-2); color: var(--muted);
+  font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em;
+}
+
+/* ── kanvas peta (sebelum MapLibre siap) ───────────────────────────────── */
 .map-canvas {
   background-color: var(--map-bg);
   background-image:
@@ -72,14 +341,6 @@ body {
     linear-gradient(90deg, var(--map-grid) 1px, transparent 1px);
   background-size: 40px 40px;
 }
-.map-canvas::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(120% 90% at 50% 38%, transparent 55%, rgba(0, 0, 0, 0.22) 100%);
-  pointer-events: none;
-}
-
 .map-pulse {
   box-shadow: 0 0 0 0 rgba(var(--pulse), 0.5);
   animation: mapPulse 2.2s infinite;
@@ -88,6 +349,15 @@ body {
   0% { box-shadow: 0 0 0 0 rgba(var(--pulse), 0.5); }
   70% { box-shadow: 0 0 0 14px rgba(var(--pulse), 0); }
   100% { box-shadow: 0 0 0 0 rgba(var(--pulse), 0); }
+}
+/* panel melayang di atas peta */
+.map-float {
+  background: color-mix(in oklab, var(--surface) 94%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(24, 36, 51, 0.1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 /* ── slider opacity ── */
@@ -106,6 +376,7 @@ body {
   border-radius: 9999px;
   background: var(--primary);
   border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong);
   cursor: pointer;
 }
 .dash-range::-moz-range-thumb {
@@ -126,36 +397,39 @@ body {
   background-clip: content-box;
 }
 ::-webkit-scrollbar-track { background: transparent; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ── tooltip choropleth (MapLibre popup) ── */
 .ml-popup .maplibregl-popup-content {
   padding: 0;
-  border-radius: 10px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 6px 18px rgba(24, 36, 51, 0.16);
   overflow: hidden;
 }
 .ml-popup .maplibregl-popup-tip {
   border-top-color: var(--surface);
   border-bottom-color: var(--surface);
 }
-.mlp { min-width: 150px; font-family: var(--font-geist-sans); }
+.mlp { min-width: 170px; font-family: var(--font-sans); }
 .mlp-head {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-  padding: 8px 10px 6px; background: var(--surface-2);
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--border);
   font-size: 12.5px; font-weight: 600; color: var(--foreground);
 }
-.mlp-head span { font-size: 10px; font-weight: 500; color: var(--muted); }
-.mlp-ind { padding: 6px 10px 0; font-size: 10.5px; color: var(--muted); line-height: 1.3; }
-.mlp-val { padding: 1px 10px 4px; font-size: 16px; font-weight: 700; color: var(--primary); }
-.mlp-rank {
-  padding: 4px 10px 8px; font-size: 11px; color: var(--foreground);
-  border-top: 1px solid var(--border);
-}
+.mlp-head span { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted); }
+.mlp-ind { padding: 7px 10px 0; font-size: 10.5px; color: var(--muted); line-height: 1.3; }
+.mlp-val { padding: 1px 10px 6px; font-size: 17px; font-weight: 700; color: var(--foreground); font-variant-numeric: tabular-nums; }
+.mlp-rank { padding: 0 10px 7px; font-size: 11px; color: var(--ink-2); }
 .mlp-rank b { color: var(--primary); }
+.mlp-foot {
+  padding: 5px 10px; font-size: 10.5px; color: var(--primary);
+  background: var(--surface-2); border-top: 1px solid var(--border);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .map-pulse { animation: none; }
-  *, *::before, *::after { transition: none !important; }
+  *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }

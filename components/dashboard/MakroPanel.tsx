@@ -99,6 +99,7 @@ export default function MakroPanel() {
           <Icon name="chevron" className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         </div>
         {ind?.unit && <span className="text-[11px] text-muted">Satuan: {ind.unit}</span>}
+        {ind?.note && <span className="text-[11px] leading-snug text-muted">{ind.note}</span>}
       </label>
 
       {/* tahun */}

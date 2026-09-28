@@ -74,9 +74,9 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     label: "Kependudukan",
     icon: "users",
     indicators: [
-      { id: "jumlah_penduduk", label: "Jumlah Penduduk", unit: "Ribu Jiwa", format: "ribu", hasRank: true },
-      { id: "persentase_penduduk", label: "Persentase Penduduk", unit: "%", format: "persen", hasRank: true },
-      { id: "kepadatan", label: "Kepadatan Penduduk", unit: "Jiwa/km²", format: "jiwakm2", hasRank: true },
+      { id: "jumlah_penduduk", label: "Jumlah Penduduk", unit: "Ribu Jiwa · 2025", format: "ribu", hasRank: true, note: "Dihitung: PDRB ADHB ÷ PDRB per kapita ADHB (BPS, 2025)." },
+      { id: "persentase_penduduk", label: "Persentase Penduduk", unit: "% dari provinsi", format: "persen", hasRank: true, note: "Dihitung dari jumlah penduduk kab/kota ÷ provinsi." },
+      { id: "kepadatan", label: "Kepadatan Penduduk", unit: "Jiwa/km²", format: "jiwakm2", hasRank: true, note: "Dihitung: jumlah penduduk ÷ luas wilayah." },
       { id: "sex_ratio", label: "Sex Ratio", format: "rasio", hasRank: true },
     ],
   },
@@ -173,7 +173,7 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
     icon: "shield",
     indicators: [
       { id: "irbi", label: "Indeks Risiko Bencana (IRBI) 2024", hasRank: false, sense: "low", format: "rasio" },
-      { id: "irbi_kelas", label: "Kelas Risiko Bencana (IRBI)", kind: "categorical", classes: KELAS_IRBI },
+      { id: "irbi_kelas", label: "Kelas Risiko Bencana (IRBI)", kind: "categorical", classes: KELAS_IRBI, note: "Kelas BNPB dari skor IRBI 2024: rendah ≤ 72, sedang 72–144, tinggi > 144." },
       { id: "iku", label: "Indeks Kualitas Udara (IKU)", hasRank: true, sense: "high", format: "rasio" },
       { id: "ika", label: "Indeks Kualitas Air (IKA)", hasRank: true, sense: "high", format: "rasio" },
       { id: "ikl", label: "Indeks Kualitas Lahan (IKL)", hasRank: true, sense: "high", format: "rasio" },

@@ -10,12 +10,12 @@ import ExportPanel from "./ExportPanel";
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "layer", label: "Layer", icon: "layers" },
   { id: "makro", label: "Makro", icon: "grid" },
-  { id: "statistik", label: "Statistik", icon: "chart" },
+  { id: "wilayah", label: "Wilayah", icon: "report" },
   { id: "ekspor", label: "Ekspor", icon: "download" },
 ];
 
 export default function Sidebar() {
-  const { tab, setTab, sidebarOpen, setSidebarOpen, activeCount } = useDashboard();
+  const { tab, setTab, sidebarOpen, setSidebarOpen, activeCount, makroOn } = useDashboard();
 
   return (
     <>
@@ -28,36 +28,43 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`absolute z-30 flex h-full w-[88%] max-w-[340px] flex-col border-r border-border bg-surface transition-transform duration-300 lg:static lg:w-80 lg:translate-x-0 ${
+        className={`absolute z-30 flex h-full w-[88%] max-w-[360px] flex-col border-r border-border bg-surface transition-transform duration-300 lg:static lg:w-[340px] lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex shrink-0 gap-1 border-b border-border p-2">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-medium transition-colors ${
-                tab === t.id
-                  ? "bg-primary text-primary-fg"
-                  : "text-muted hover:bg-surface-2 hover:text-foreground"
-              }`}
-            >
-              <Icon name={t.icon} className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t.label}</span>
-            </button>
-          ))}
+        {/* tab bergaris bawah (Tabler nav-tabs) */}
+        <div className="flex shrink-0 border-b border-border px-2" role="tablist">
+          {TABS.map((t) => {
+            const on = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={on}
+                onClick={() => setTab(t.id)}
+                className={`relative flex flex-1 items-center justify-center gap-1.5 px-1 py-3 text-[13px] font-medium transition-colors ${
+                  on ? "text-primary" : "text-ink-2 hover:text-foreground"
+                }`}
+              >
+                <Icon name={t.icon} className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t.label}</span>
+                {on && <span className="absolute inset-x-2 bottom-[-1px] h-0.5 rounded-t bg-primary" />}
+              </button>
+            );
+          })}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === "layer" && <LayerPanel />}
           {tab === "makro" && <MakroPanel />}
-          {tab === "statistik" && <StatsPanel />}
+          {tab === "wilayah" && <StatsPanel />}
           {tab === "ekspor" && <ExportPanel />}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-3 text-xs text-muted">
-          <span>{activeCount} layer aktif</span>
+        <div className="flex shrink-0 items-center justify-between border-t border-border bg-surface-2 px-4 py-2.5 text-[12px] text-muted">
+          <span>
+            {activeCount} layer aktif{makroOn ? " · choropleth" : ""}
+          </span>
           <span className="font-mono">DITPIT · Bappenas</span>
         </div>
       </aside>

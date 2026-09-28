@@ -1,23 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
+import { ThemeProvider } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+// Inter (OFL) disimpan lokal di app/fonts — tidak perlu Google Fonts saat build
+// maupun saat dibuka, jadi aman untuk jaringan tertutup.
+const inter = localFont({
+  src: "./fonts/InterVariable-latin.woff2",
+  variable: "--font-inter",
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "DITPIT · Bappenas — Dashboard GIS",
+  title: "DITPIT · Bappenas — Dashboard Wilayah",
   description:
-    "Dashboard GIS interaktif Direktorat — eksplorasi layer wilayah, statistik, dan unduh data spasial.",
-  // Next.js otomatis memakai app/icon.png & app/favicon.ico sebagai favicon.
+    "Peta tematik dan profil daerah kawasan timur Indonesia — Direktorat PIT, Bappenas.",
 };
+
+// Terapkan tema tersimpan sebelum paint pertama (hindari kedip terang→gelap).
+const themeBoot = `try{var t=localStorage.getItem('ditpit-theme');if(!t){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}if(t==='dark')document.documentElement.classList.add('dark')}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -25,11 +27,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full">{children}</body>
+    <html lang="id" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
+      </head>
+      <body className="min-h-full">
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }
