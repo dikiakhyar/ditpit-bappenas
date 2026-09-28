@@ -89,6 +89,9 @@ lib/theme.tsx                  ← tema terang/gelap bersama (disimpan di localS
 public/data/profil.json        ← data profil (±2,7 MB, dimuat sekali per sesi)
 ```
 
-### Data peta
-`public/data/kabkota.geojson` (53 kab/kota, kode BPS) dan `public/data/makro.json` (angka asli dari
-Database PIT) dibangkitkan oleh `node scripts/build-map-data.mjs` — lihat `DATA-MAKRO.md`.
+### Data
+- **Database = Google Spreadsheet** (dibaca langsung, tanpa git push) → lihat `DATABASE.md`.
+- **Data Makro** di peta dihitung dari database yang sama → lihat `DATA-MAKRO.md`.
+- **Basemap**: Peta (OSM Positron putih-abu), Satelit (Esri World Imagery + label), Polos (putih). Gratis, tanpa API key;
+  `NEXT_PUBLIC_MAPTILER_KEY` tidak dipakai lagi. Bila tile gagal dimuat → otomatis peta "Wilayah" offline.
+- **Ekspor**: PNG = peta persis seperti di layar + legenda simbol & keterangan (tanpa judul/tata letak).

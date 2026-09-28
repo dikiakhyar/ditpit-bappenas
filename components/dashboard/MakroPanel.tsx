@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
-import { MAKRO_CATEGORIES, findIndicator, formatValue, RAMP } from "@/lib/makro";
+import { findIndicator, formatValue, RAMP } from "@/lib/makro";
+import DataSource from "@/components/app/DataSource";
 import { ranking } from "@/lib/choropleth";
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -32,10 +33,11 @@ export default function MakroPanel() {
     kabkota,
     makroData,
     dataStatus,
+    makroCatalog,
   } = useDashboard();
 
-  const cat = MAKRO_CATEGORIES.find((c) => c.id === makroSel.catId) ?? MAKRO_CATEGORIES[0];
-  const found = findIndicator(makroSel.indId);
+  const cat = makroCatalog.find((c) => c.id === makroSel.catId) ?? makroCatalog[0];
+  const found = findIndicator(makroSel.indId, makroCatalog);
   const ind = found?.ind;
 
   const ranked = useMemo(
@@ -58,12 +60,11 @@ export default function MakroPanel() {
       </div>
 
       {dataStatus === "error" && (
-        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-900">
-          File data belum ditemukan di <span className="font-mono">public/data/</span>. Tampil dengan
-          data contoh setelah file <span className="font-mono">kabkota.geojson</span> &{" "}
-          <span className="font-mono">makro.json</span> tersedia.
+        <p className="rounded-md border border-bad/30 bg-bad-lt px-3 py-2 text-[11.5px] leading-snug text-bad">
+          Database belum dapat dimuat. Periksa koneksi internet server atau izin berbagi spreadsheet.
         </p>
       )}
+      {dataStatus === "loading" && <p className="text-[11.5px] text-muted">Memuat database dari spreadsheet…</p>}
 
       {/* kategori */}
       <label className="flex flex-col gap-1">
@@ -75,7 +76,7 @@ export default function MakroPanel() {
             onChange={(e) => setMakroCategory(e.target.value)}
             className="w-full appearance-none rounded-lg border border-border bg-surface py-2 pl-8 pr-8 text-sm font-medium outline-none focus:border-primary"
           >
-            {MAKRO_CATEGORIES.map((c) => (
+            {makroCatalog.map((c) => (
               <option key={c.id} value={c.id}>{c.label}</option>
             ))}
           </select>
@@ -162,10 +163,10 @@ export default function MakroPanel() {
       )}
 
       <p className="text-[11px] leading-relaxed text-muted">
-        Semua indikator makro dirangkum dalam <b>satu layer</b> peta yang berganti warna sesuai pilihan
-        di atas — jadi panel tetap ringkas walau indikatornya banyak. Arahkan kursor ke wilayah untuk
-        melihat nilai &amp; peringkat.
+        Satu layer peta yang berganti warna sesuai pilihan di atas. Nilai & peringkat dihitung langsung dari database; indikator dan
+        tahun yang tampil hanya yang berdata untuk kab/kota di peta. Arahkan kursor ke wilayah untuk melihat nilainya.
       </p>
+      <DataSource />
     </div>
   );
 }

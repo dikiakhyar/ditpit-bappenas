@@ -18,6 +18,8 @@ export interface ProfilData {
   desa: Record<string, { status?: number[]; dims?: Record<string, number> }>;
   meta: Record<string, { n: string; s: string }>;
   status: string[];
+  /** Asal data (diisi oleh /api/database). */
+  source?: { kind: "spreadsheet" | "snapshot"; fetchedAt: string; sheetUrl: string; note?: string };
 }
 export type Better = "up" | "down" | 0;
 
@@ -162,6 +164,7 @@ export function createEngine(D: ProfilData) {
   };
 
   return {
+    source: D.source,
     has, name, isProv, provOf, PROVS, kabsOf, peersOf, peerWord,
     sheet, ser, pmask, latestOf, valAt, rankInfo, pickCode, composeRows, meta, desa, coverage,
   };
@@ -169,16 +172,37 @@ export function createEngine(D: ProfilData) {
 export type Engine = ReturnType<typeof createEngine>;
 
 // ── pemuatan (sekali per sesi, dipakai bersama halaman Peta & Profil) ──
+// Utama: /api/database (langsung dari Google Spreadsheet, cache ±5 menit).
+// Cadangan: /data/profil.json (salinan lokal) bila API tak tersedia.
 let cache: Promise<Engine> | null = null;
+async function fetchData(): Promise<ProfilData> {
+  try {
+    const r = await fetch("/api/database", { cache: "no-store" });
+    if (r.ok) return (await r.json()) as ProfilData;
+  } catch {}
+  const r = await fetch("/data/profil.json");
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = (await r.json()) as ProfilData;
+  return { ...d, source: { kind: "snapshot", fetchedAt: new Date().toISOString(), sheetUrl: "", note: "API database tidak tersedia." } };
+}
 export function loadProfil(): Promise<Engine> {
   if (!cache) {
-    cache = fetch("/data/profil.json")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d: ProfilData) => createEngine(d))
+    cache = fetchData()
+      .then((d) => createEngine(d))
       .catch((e) => {
         cache = null;
         throw e;
       });
   }
   return cache;
+}
+/** Paksa server membaca ulang spreadsheet, lalu muat ulang data di browser. */
+export async function refreshProfil(): Promise<Engine> {
+  await fetch("/api/database/refresh", { method: "POST" }).catch(() => {});
+  // parameter unik → lewati cache CDN, ambil hasil yang baru saja dibaca server
+  const r = await fetch(`/api/database?t=${Date.now()}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const e = createEngine((await r.json()) as ProfilData);
+  cache = Promise.resolve(e);
+  return e;
 }

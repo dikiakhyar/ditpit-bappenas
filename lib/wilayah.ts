@@ -1,4 +1,4 @@
-// Indeks wilayah ringan untuk pencarian & navigasi (dihasilkan dari public/data/profil.json).
+// Indeks wilayah ringan untuk pencarian di header (dari daftar wilayah Database PIT).
 // [kode BPS, nama, kode provinsi induk ("0" untuk provinsi)]. Jangan diedit manual —
 // perbarui bersama profil.json bila daftar wilayah berubah.
 export type WilayahRow = readonly [kode: string, nama: string, induk: string];

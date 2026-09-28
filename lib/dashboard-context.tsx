@@ -9,8 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { LAYERS, PROVINCES, type GroupId, type Province } from "@/lib/layers";
-import { MAKRO_CATEGORIES, findIndicator, type MakroData } from "@/lib/makro";
-import { hasMaptiler, type BasemapId } from "@/lib/basemap";
+import type { Map as MlMap } from "maplibre-gl";
+import { MAKRO_CATEGORIES, buildMakro, findIndicator, type MakroCategory, type MakroData } from "@/lib/makro";
+import { DEFAULT_BASEMAP, type BasemapId } from "@/lib/basemap";
+import { useProfil } from "@/lib/profil/useProfil";
+import type { Engine } from "@/lib/profil/engine";
 import { useTheme, type Theme } from "@/lib/theme";
 
 export type Tab = "layer" | "makro" | "wilayah" | "ekspor";
@@ -35,10 +38,15 @@ export interface MakroSel {
   year: number | null;
 }
 
-function defaultSel(): MakroSel {
-  const cat = MAKRO_CATEGORIES[0];
-  const ind = cat.indicators[0];
-  return { catId: cat.id, indId: ind.id, year: ind.years ? ind.years[ind.years.length - 1] : null };
+/** Pastikan pilihan valid terhadap katalog berdata (kategori/indikator/tahun ada). */
+function normalizeSel(sel: MakroSel, catalog: MakroCategory[]): MakroSel {
+  const found = findIndicator(sel.indId, catalog);
+  const cat = found?.cat ?? catalog.find((c) => c.id === sel.catId) ?? catalog[0];
+  if (!cat) return sel;
+  const ind = found?.ind ?? cat.indicators[0];
+  const ys = ind.years ?? [];
+  const year = sel.year != null && ys.includes(sel.year) ? sel.year : ys.length ? ys[ys.length - 1] : null;
+  return { catId: cat.id, indId: ind.id, year };
 }
 
 interface DashboardCtx {
@@ -50,8 +58,6 @@ interface DashboardCtx {
   setSidebarOpen: (v: boolean) => void;
   province: Province;
   setProvince: (p: Province) => void;
-  exportTitle: string;
-  setExportTitle: (s: string) => void;
   layerState: Record<string, LayerState>;
   toggleLayer: (id: string) => void;
   setOpacity: (id: string, v: number) => void;
@@ -67,12 +73,18 @@ interface DashboardCtx {
   basemapId: BasemapId;
   setBasemapId: (id: BasemapId) => void;
 
+  // peta MapLibre aktif (dipakai ekspor PNG)
+  mapInstance: MlMap | null;
+  setMapInstance: (m: MlMap | null) => void;
+
   // Data Makro (choropleth KabKota)
   makroOn: boolean;
   setMakroOn: (v: boolean) => void;
   makroOpacity: number;
   setMakroOpacity: (v: number) => void;
   makroSel: MakroSel;
+  /** katalog indikator yang BERDATA (tahun menurut ketersediaan di database) */
+  makroCatalog: MakroCategory[];
   setMakroCategory: (catId: string) => void;
   setMakroIndicator: (indId: string) => void;
   setMakroYear: (year: number) => void;
@@ -81,6 +93,8 @@ interface DashboardCtx {
   kabkota: KabKotaGeo | null;
   makroData: MakroData | null;
   dataStatus: "loading" | "ready" | "error";
+  /** mesin database (Google Spreadsheet) */
+  engine: Engine | null;
 }
 
 const Ctx = createContext<DashboardCtx | null>(null);
@@ -91,7 +105,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [selectedKode, setSelectedKode] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [province, setProvince] = useState<Province>(PROVINCES[0]);
-  const [exportTitle, setExportTitle] = useState("");
+  const [mapInstance, setMapInstance] = useState<MlMap | null>(null);
   const [layerState, setLayerState] = useState<Record<string, LayerState>>(() =>
     Object.fromEntries(
       LAYERS.map((l) => [
@@ -104,62 +118,57 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // ── basemap ──
   // Default "Peta" (MapTiler) bila kunci tersedia; jika tidak, langsung
   // "Wilayah" offline agar peta tetap tampil tanpa jaringan.
-  const [basemapId, setBasemapId] = useState<BasemapId>(
-    hasMaptiler ? "voyager" : "wilayah"
-  );
+  const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP);
 
   // ── Data Makro ──
   const [makroOn, setMakroOn] = useState(true);
   const [makroOpacity, setMakroOpacity] = useState(0.82);
-  const [makroSel, setMakroSel] = useState<MakroSel>(defaultSel);
+  const [rawSel, setMakroSel] = useState<MakroSel>({ catId: MAKRO_CATEGORIES[0].id, indId: MAKRO_CATEGORIES[0].indicators[0].id, year: null });
 
-  const setMakroCategory = (catId: string) =>
-    setMakroSel(() => {
-      const cat = MAKRO_CATEGORIES.find((c) => c.id === catId) ?? MAKRO_CATEGORIES[0];
-      const ind = cat.indicators[0];
-      return { catId: cat.id, indId: ind.id, year: ind.years ? ind.years[ind.years.length - 1] : null };
-    });
-
-  const setMakroIndicator = (indId: string) =>
-    setMakroSel((s) => {
-      const found = findIndicator(indId);
-      if (!found) return s;
-      const { ind } = found;
-      const year = ind.years
-        ? ind.years.includes(s.year ?? -1)
-          ? s.year
-          : ind.years[ind.years.length - 1]
-        : null;
-      return { ...s, indId, year };
-    });
-
-  const setMakroYear = (year: number) => setMakroSel((s) => ({ ...s, year }));
-
-  // ── pemuatan data (GeoJSON KabKota + indikator makro) ──
+  // ── data: batas kab/kota (GeoJSON statis) + database (Google Spreadsheet) ──
   const [kabkota, setKabkota] = useState<KabKotaGeo | null>(null);
-  const [makroData, setMakroData] = useState<MakroData | null>(null);
-  const [dataStatus, setDataStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [geoError, setGeoError] = useState(false);
+  const { E: engine, error: dbError } = useProfil();
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const [g, m] = await Promise.all([
-          fetch("/data/kabkota.geojson").then((r) => (r.ok ? r.json() : Promise.reject())),
-          fetch("/data/makro.json").then((r) => (r.ok ? r.json() : Promise.reject())),
-        ]);
-        if (cancelled) return;
-        setKabkota(g);
-        setMakroData(m);
-        setDataStatus("ready");
-      } catch {
-        if (!cancelled) setDataStatus("error");
-      }
-    })();
+    fetch("/data/kabkota.geojson")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((g) => !cancelled && setKabkota(g))
+      .catch(() => !cancelled && setGeoError(true));
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const { makroData, makroCatalog } = useMemo(() => {
+    if (!engine || !kabkota) return { makroData: null, makroCatalog: MAKRO_CATEGORIES };
+    const codes = kabkota.features.map((f) => String(f.properties?.kode ?? "")).filter(Boolean);
+    const { data, catalog } = buildMakro(engine, codes);
+    return { makroData: data, makroCatalog: catalog.length ? catalog : MAKRO_CATEGORIES };
+  }, [engine, kabkota]);
+
+  const makroSel = useMemo(() => normalizeSel(rawSel, makroCatalog), [rawSel, makroCatalog]);
+  const dataStatus: "loading" | "ready" | "error" = geoError || dbError ? "error" : makroData ? "ready" : "loading";
+
+  const setMakroCategory = (catId: string) =>
+    setMakroSel(() => {
+      const cat = makroCatalog.find((c) => c.id === catId) ?? makroCatalog[0];
+      const ind = cat.indicators[0];
+      const ys = ind.years ?? [];
+      return { catId: cat.id, indId: ind.id, year: ys.length ? ys[ys.length - 1] : null };
+    });
+
+  const setMakroIndicator = (indId: string) =>
+    setMakroSel((s) => {
+      const found = findIndicator(indId, makroCatalog);
+      if (!found) return s;
+      const ys = found.ind.years ?? [];
+      const cur = normalizeSel(s, makroCatalog).year;
+      return { catId: found.cat.id, indId, year: cur != null && ys.includes(cur) ? cur : ys.length ? ys[ys.length - 1] : null };
+    });
+
+  const setMakroYear = (year: number) => setMakroSel((s) => ({ ...normalizeSel(s, makroCatalog), year }));
 
   const toggleLayer = (id: string) =>
     setLayerState((s) => ({ ...s, [id]: { ...s[id], visible: !s[id].visible } }));
@@ -203,8 +212,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setSidebarOpen,
     province,
     setProvince,
-    exportTitle,
-    setExportTitle,
     layerState,
     toggleLayer,
     setOpacity,
@@ -220,12 +227,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     makroOpacity,
     setMakroOpacity,
     makroSel,
+    makroCatalog,
     setMakroCategory,
     setMakroIndicator,
     setMakroYear,
     kabkota,
     makroData,
     dataStatus,
+    engine,
+    mapInstance,
+    setMapInstance,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

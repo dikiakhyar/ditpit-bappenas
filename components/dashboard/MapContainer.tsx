@@ -7,7 +7,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useDashboard } from "@/lib/dashboard-context";
 import { basemapStyle, fallbackStyle, BASEMAPS, type BasemapId } from "@/lib/basemap";
 import { bake, type Baked } from "@/lib/choropleth";
-import { RAMP, formatValue, findIndicator } from "@/lib/makro";
+import { formatValue, findIndicator } from "@/lib/makro";
+import { makroLegend } from "@/lib/legend";
 import { Icon } from "@/components/ui/icons";
 
 // Cakupan 4 provinsi: NTB (barat) → Maluku (timur). [[W,S],[E,N]]
@@ -44,6 +45,7 @@ export default function MapContainer() {
     setSelectedKode,
     setTab,
     setSidebarOpen,
+    setMapInstance,
   } = useDashboard();
   const params = useSearchParams();
 
@@ -252,6 +254,7 @@ export default function MapContainer() {
 
       map.on("load", () => {
         setStatus("ready");
+        setMapInstance(map ?? null);
         map?.resize();
       });
 
@@ -334,6 +337,7 @@ export default function MapContainer() {
       popupRef.current?.remove();
       map?.remove();
       mapRef.current = null;
+      setMapInstance(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -415,13 +419,13 @@ export default function MapContainer() {
       )}
       {dataStatus === "error" && (
         <div className="pointer-events-none absolute inset-x-0 top-14 z-10 mx-auto w-fit max-w-[90%] rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-center text-[12px] text-amber-900 shadow-sm">
-          Data Makro belum ada di <span className="font-mono">public/data/</span>.
+          Database belum dapat dimuat — periksa koneksi atau izin berbagi spreadsheet.
         </div>
       )}
 
       {/* pemilih basemap */}
       <div className="absolute left-3 top-3 z-10 flex overflow-hidden map-float">
-        {BASEMAPS.map((b) => (
+        {BASEMAPS.filter((b) => b.picker).map((b) => (
           <button
             key={b.id}
             onClick={() => setBasemapId(b.id)}
@@ -459,51 +463,27 @@ export default function MapContainer() {
         <span>{activeCount} layer</span>
       </div>
 
-      <MakroLegend legend={legend} on={makroOn} year={makroSel.year} />
+      <MakroLegend legend={legend} on={makroOn} year={makroSel.year} total={kabkota?.features.length ?? 0} />
     </div>
   );
 }
 
-function MakroLegend({ legend, on, year }: { legend: Baked | null; on: boolean; year: number | null }) {
+function MakroLegend({ legend, on, year, total }: { legend: Baked | null; on: boolean; year: number | null; total: number }) {
   if (!on || !legend) return null;
-  const { ind, numeric, breaks, min, max, count } = legend;
-
+  const lg = makroLegend(legend, year, total);
   return (
-    <div className="absolute bottom-3 right-3 z-10 max-h-[60%] max-w-[230px] overflow-y-auto map-float p-3 text-foreground">
-      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
-        Legenda · Data Makro
-      </p>
-      <p className="mb-2 text-[11.5px] font-medium leading-snug">
-        {ind.label}
-        {year ? ` · ${year}` : ""}
-        {ind.unit ? <span className="text-muted"> ({ind.unit})</span> : null}
-      </p>
-
-      {numeric ? (
-        count > 0 ? (
-          <>
-            <div className="flex h-2.5 overflow-hidden rounded">
-              {RAMP.map((c, i) => (
-                <span key={i} className="flex-1" style={{ background: c }} />
-              ))}
-            </div>
-            <div className="mt-1 flex justify-between font-mono text-[10px] text-muted">
-              <span>{formatValue(min, ind.format)}</span>
-              <span>{formatValue(max, ind.format)}</span>
-            </div>
-            <p className="mt-1.5 text-[10px] text-muted">
-              Klasifikasi kuantil · {count} Kab/Kota{breaks.length ? "" : ""}
-            </p>
-          </>
-        ) : (
-          <p className="text-[11px] text-muted">Belum ada data untuk pilihan ini.</p>
-        )
+    <div className="map-float absolute bottom-3 right-3 z-10 max-h-[60%] w-[230px] overflow-y-auto p-3 text-foreground">
+      <p className="subheader mb-1">Legenda</p>
+      <p className="text-[12px] font-semibold leading-snug">{lg.title}</p>
+      {lg.sub && <p className="mb-2 text-[11px] leading-snug text-muted">{lg.sub}</p>}
+      {legend.count === 0 ? (
+        <p className="text-[11px] text-muted">Belum ada data untuk pilihan ini.</p>
       ) : (
         <ul className="flex flex-col gap-1">
-          {(ind.classes ?? []).map((c) => (
-            <li key={c.value} className="flex items-center gap-2 text-[11px]">
-              <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: c.color }} />
-              <span className="truncate">{c.value}</span>
+          {lg.classes.map((c) => (
+            <li key={c.label} className="flex items-center gap-2 text-[11.5px]">
+              <span className="h-3 w-4 shrink-0 rounded-sm border border-black/10" style={{ background: c.color }} />
+              <span className="tnum truncate">{c.label}</span>
             </li>
           ))}
         </ul>

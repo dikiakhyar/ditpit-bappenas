@@ -1,76 +1,29 @@
-# Data Makro — format & cara isi data asli
+# Data Makro — choropleth kab/kota
 
-Fitur **Data Makro** menampilkan seluruh indikator Kab/Kota sebagai **satu layer choropleth**
-(poligon yang berganti warna) yang dikendalikan tiga pemilih di tab **Makro**:
-**Kategori → Indikator → Tahun**. Jadi ~150 kolom tidak menjadi ~150 toggle — panel tetap ringkas.
+Tab **Makro** di Peta Tematik mewarnai poligon kab/kota menurut pilihan **Kategori → Indikator → Tahun**.
 
-**Sumber data kini asli, bukan contoh.** Kedua file di bawah dibangkitkan otomatis oleh
-`scripts/build-map-data.mjs` dari:
+**Sumber nilai: database Google Spreadsheet** (lihat `DATABASE.md`) — dihitung langsung saat situs dibuka,
+tidak ada lagi `makro.json`. Katalog indikator ada di `lib/makro.ts`:
 
-- `public/data/maluku_nusra.geojson` — batas 53 kab/kota (NTB, NTT, Maluku, Maluku Utara)
-- `public/data/profil.json` — Database PIT (sumber yang sama dengan halaman **Profil Daerah**)
+- Tahun yang tampil = tahun yang benar-benar terisi untuk kab/kota di peta.
+- Indikator tanpa data kab/kota otomatis disembunyikan (mis. listrik PLN & imunisasi yang hanya tingkat provinsi).
+- Peringkat = urutan di antara seluruh kab/kota se-provinsi di database (1 = terbaik menurut arah "baik"),
+  sama dengan halaman Profil Daerah.
+- Legenda memakai kelas kuantil (6 kelas) + "Tidak ada data".
 
-```bash
-node scripts/build-map-data.mjs   # jalankan ulang setiap kali salah satu sumber diperbarui
+Indikator turunan: jumlah penduduk = PDRB ADHB ÷ PDRB per kapita ADHB (per tahun); persentase & kepadatan
+penduduk dihitung darinya; kelas IRBI memakai ambang BNPB (rendah ≤ 72, sedang 72–144, tinggi > 144).
+
+## Menambah indikator
+Tambah satu entri di `MAKRO_CATEGORIES` (`lib/makro.ts`):
+
+```ts
+{ id: "air_minum", label: "RT dengan Air Minum Layak", unit: "%", format: "persen",
+  src: fromSheet("RT Air Minum Layak") }                         // sheet tanpa item
+{ id: "tpt", label: "TPT", sense: "low", format: "persen",
+  src: fromSheet("TPT", "Tingkat Pengangguran Terbuka (TPT)", (y) => `Agu ${y}`) }  // item + label periode
 ```
 
-Skrip mencocokkan nama poligon ke **kode BPS** (gagal keras bila ada nama yang ambigu), lalu menghitung
-nilai tiap indikator dan peringkat provinsi (1 = terbaik menurut arah "baik" di `lib/makro.ts`).
-Indikator turunan: jumlah penduduk = PDRB ADHB ÷ PDRB per kapita (2025); persentase & kepadatan
-dihitung darinya; kelas IRBI memakai ambang BNPB. Belum ada sumbernya di profil.json:
-`sex_ratio`, `iklh_kategori`, serta TPT/TPAK Agustus 2024 — peta menampilkan "Belum ada data".
-
-> Kode lama di `kabkota.geojson` (data contoh, 26 poligon) sebagian salah — mis. poligon Kupang
-> berkode 5301 (BPS: Sumba Barat). Versi lama tetap ada di riwayat git.
-
-## 1. `public/data/kabkota.geojson` — batas wilayah
-
-`FeatureCollection` poligon Kab/Kota. Tiap feature **wajib** punya properti:
-
-| properti    | contoh                  | keterangan                         |
-|-------------|-------------------------|------------------------------------|
-| `kode`      | `"5271"`                | kode wilayah BPS (string) — **kunci join** |
-| `nama`      | `"Kota Mataram"`        | nama tampil di tooltip/peringkat   |
-| `provinsi`  | `"Nusa Tenggara Barat"` | nama provinsi                      |
-
-```json
-{ "type":"FeatureCollection","features":[
-  { "type":"Feature",
-    "properties":{ "kode":"5271","nama":"Kota Mataram","provinsi":"Nusa Tenggara Barat" },
-    "geometry":{ "type":"Polygon","coordinates":[ ... ] } }
-]}
-```
-
-> Ganti geometri contoh (kotak) dengan batas resmi (mis. dari BIG/Indonesia geo-boundaries).
-> Nama properti bisa disesuaikan di `lib/choropleth.ts` (`CODE_PROP`, `NAME_PROP`, `PROV_PROP`).
-
-## 2. `public/data/makro.json` — nilai indikator
-
-Objek dengan **kunci = `kode` Kab/Kota**, isinya nilai per indikator. Aturan nama kolom:
-
-- indikator **tanpa tahun** → `id`  (mis. `"sex_ratio"`, `"apbd_pad"`)
-- indikator **bertahun** → `id_tahun`  (mis. `"tpt_2023"`, `"ipm_2024"`)
-- **Peringkat Provinsi** → kolom di atas + `__rank`  (mis. `"tpt_2023__rank"`)
-
-```json
-{
-  "5271": {
-    "jumlah_penduduk": 437.0,
-    "tpt_2023": 2.68,  "tpt_2023__rank": 2,
-    "ipm_2024": 78.9,  "ipm_2024__rank": 1,
-    "iklh_kategori": "Baik"
-  }
-}
-```
-
-`id` indikator & tahun yang tersedia didefinisikan di **`lib/makro.ts`** (`MAKRO_CATEGORIES`).
-Untuk menambah/ubah indikator: edit entri di sana, lalu sediakan kolom datanya — panel, peta,
-legenda, dan peringkat ikut otomatis.
-
-## Indikator kualitatif
-`kapasitas_fiskal_kategori_2025`, `irbi_kelas`, `iklh_kategori` diwarnai per kelas (bukan gradasi).
-Nilai harus sama persis dengan label kelas di `lib/makro.ts` (mis. `"Sangat Tinggi"`, `"Baik"`).
-
-## Tip ekspor dari Excel
-Susun satu baris per Kab/Kota, kolom = `kode, nama, provinsi, tpt_2020, tpt_2020__rank, ...`,
-lalu pivot ke JSON `{kode: {…}}`. Saya bisa bantu buatkan konverter Excel→JSON bila perlu.
+## Poligon kab/kota
+`public/data/kabkota.geojson` (53 kab/kota NTB, NTT, Maluku, Maluku Utara, berkode BPS) dibangkitkan dari
+`public/data/maluku_nusra.geojson` dengan `node scripts/build-map-data.mjs`. Nanti diganti SHP se-wilayah timur.

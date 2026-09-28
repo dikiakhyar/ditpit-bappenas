@@ -1,42 +1,32 @@
-// Penyusun ekspor peta -> PNG memakai Canvas 2D (tanpa dependensi tambahan).
-// Menggambar satu komposisi rapi: kepala berjudul (deskriptif, dari input),
-// panel peta, dan LEGENDA hasil-generate dari layer yang sedang aktif.
-//
-// Dipakai dua kali oleh ExportPanel: render kecil untuk pratinjau live, dan
-// render resolusi penuh saat diunduh. Saat MapLibre aktif (Sprint 3), cukup
-// oper `mapImage = map.getCanvas()` (map perlu preserveDrawingBuffer:true).
+// Ekspor peta → PNG, APA ADANYA: tangkapan kanvas MapLibre persis seperti di
+// layar (basemap + choropleth + layer aktif), ditambah panel LEGENDA berisi
+// simbol & keterangannya di sisi kanan. Tanpa judul, kop, atau tata letak lain.
+// Canvas 2D murni — tanpa dependensi tambahan.
 
-import {
-  GROUPS,
-  SUBGROUPS,
-  type LayerDef,
-} from "@/lib/layers";
+import { GROUPS, SUBGROUPS, type LayerDef } from "@/lib/layers";
 
-export interface ExportOptions {
-  title: string;
-  province: string;
-  layers: LayerDef[]; // layer aktif (urutan registry)
-  date?: Date;
-  pxRatio?: number; // piksel perangkat per 1 unit logis (default 2)
-  mapImage?: CanvasImageSource | null; // tangkapan peta asli (opsional)
-  width?: number; // lebar logis, default 860
+export interface LegendClass {
+  color: string;
+  label: string;
+  outline?: boolean; // gambar sebagai garis tepi (mis. wilayah terpilih)
+}
+export interface LegendModel {
+  /** choropleth Data Makro */
+  makro?: { title: string; sub?: string; classes: LegendClass[] };
+  /** layer tematik/administrasi yang aktif */
+  layers: LayerDef[];
+  /** wilayah yang sedang disorot */
+  selected?: string;
+  /** atribusi basemap (wajib menurut lisensi OSM/CARTO/Esri) */
+  attribution?: string;
 }
 
-const INK = "#0f1b2d";
-const SUBTLE = "#5b6b85";
-const HAIR = "#dfe5ee";
-const ACCENT = "#1683c2";
-const PANEL_BG = "#f4f6fa";
+const INK = "#182433";
+const SUBTLE = "#5d6b80";
+const HAIR = "#e3e7ee";
+const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif';
 
-const MONTHS = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-];
-function formatDate(d: Date) {
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-// ── swatch di canvas (mirror dari komponen Swatch.tsx) ──────────────────────
+// ── swatch di canvas (cermin komponen Swatch.tsx) ─────────────────────────
 function drawSwatch(ctx: CanvasRenderingContext2D, l: LayerDef, x: number, y: number, s: number) {
   const mid = s / 2;
   ctx.save();
@@ -173,220 +163,156 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string
   return lines;
 }
 
-/**
- * Render komposisi ekspor ke `canvas`. Mengembalikan tinggi logis terpakai.
- */
-export function renderMapExport(canvas: HTMLCanvasElement, opts: ExportOptions): void {
-  const W = opts.width ?? 860;
-  const pr = opts.pxRatio ?? 2;
-  const P = 30;
-  const date = opts.date ?? new Date();
+// ── legenda ──────────────────────────────────────────────────────────────
+const LW = 260; // lebar logis panel legenda
+const PAD = 16;
 
+interface Op {
+  h: number;
+  draw: (ctx: CanvasRenderingContext2D, y: number) => void;
+}
+
+function legendOps(ctx: CanvasRenderingContext2D, m: LegendModel): Op[] {
+  const ops: Op[] = [];
+  const inner = LW - PAD * 2;
+  const text = (t: string, font: string, color: string, lh: number) => {
+    ctx.font = font;
+    for (const line of wrap(ctx, t, inner)) {
+      ops.push({
+        h: lh,
+        draw: (c, y) => {
+          c.font = font;
+          c.fillStyle = color;
+          c.textBaseline = "top";
+          c.fillText(line, PAD, y);
+        },
+      });
+    }
+  };
+  const gap = (h: number) => ops.push({ h, draw: () => {} });
+  const row = (sw: (c: CanvasRenderingContext2D, x: number, y: number) => void, label: string) => {
+    ctx.font = `12px ${FONT}`;
+    const lines = wrap(ctx, label, inner - 26);
+    const h = Math.max(18, lines.length * 15 + 3);
+    ops.push({
+      h,
+      draw: (c, y) => {
+        sw(c, PAD, y + 1);
+        c.font = `12px ${FONT}`;
+        c.fillStyle = INK;
+        c.textBaseline = "top";
+        lines.forEach((ln, i) => c.fillText(ln, PAD + 26, y + 2 + i * 15));
+      },
+    });
+  };
+
+  text("LEGENDA", `600 11px ${FONT}`, SUBTLE, 18);
+  gap(4);
+
+  if (m.makro) {
+    text(m.makro.title, `600 12.5px ${FONT}`, INK, 16);
+    if (m.makro.sub) text(m.makro.sub, `11.5px ${FONT}`, SUBTLE, 15);
+    gap(6);
+    for (const k of m.makro.classes)
+      row((c, x, y) => {
+        c.fillStyle = k.color;
+        roundRect(c, x, y, 18, 14, 2);
+        c.fill();
+        c.strokeStyle = "rgba(24,36,51,0.18)";
+        c.lineWidth = 1;
+        c.stroke();
+      }, k.label);
+    gap(10);
+  }
+
+  if (m.selected) {
+    row((c, x, y) => {
+      c.strokeStyle = "#0b2540";
+      c.lineWidth = 2.2;
+      roundRect(c, x + 1, y + 1, 16, 12, 2);
+      c.stroke();
+    }, `Wilayah terpilih: ${m.selected}`);
+    gap(10);
+  }
+
+  for (const g of groupActive(m.layers)) {
+    text(g.heading, `600 11.5px ${FONT}`, SUBTLE, 16);
+    gap(2);
+    for (const l of g.items) row((c, x, y) => drawSwatch(c, l, x + 1, y - 1, 16), l.name);
+    gap(8);
+  }
+
+  if (m.attribution) {
+    gap(4);
+    ops.push({
+      h: 1,
+      draw: (c, y) => {
+        c.fillStyle = HAIR;
+        c.fillRect(PAD, y, inner, 1);
+      },
+    });
+    gap(6);
+    text(`Peta dasar: ${m.attribution}`, `10.5px ${FONT}`, SUBTLE, 14);
+  }
+  return ops;
+}
+
+/** Tinggi logis legenda (untuk menyesuaikan tinggi gambar). */
+function legendHeight(ops: Op[]) {
+  return PAD + ops.reduce((a, o) => a + o.h, 0) + PAD;
+}
+
+/** Gambar legenda saja ke `canvas` (dipakai pratinjau & unduhan "legenda saja"). */
+export function renderLegend(canvas: HTMLCanvasElement, model: LegendModel, pxRatio = 2): void {
+  const probe = canvas.getContext("2d")!;
+  const ops = legendOps(probe, model);
+  const H = Math.ceil(legendHeight(ops));
+  canvas.width = LW * pxRatio;
+  canvas.height = H * pxRatio;
   const ctx = canvas.getContext("2d")!;
-  // font util
-  const sans = (size: number, weight = "400") =>
-    `${weight} ${size}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial`;
-  const mono = (size: number, weight = "400") =>
-    `${weight} ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-
-  // ── ukur kepala ──
-  const titleText = opts.title.trim() || `Peta Tematik — Provinsi ${opts.province}`;
-  const contentW = W - P * 2;
-  ctx.font = sans(26, "700");
-  const titleLines = wrap(ctx, titleText, contentW);
-  const headTop = P + 30; // di bawah eyebrow
-  const titleLH = 32;
-  const headerH = headTop + titleLines.length * titleLH + 16 + 22; // judul + subjudul
-  const dividerY = P + headerH - 8;
-
-  // ── ukur legenda ──
-  const groups = groupActive(opts.layers);
-  const legendW = 250;
-  const mapW = contentW - legendW - 22;
-  const itemH = 22;
-  const headingH = 24;
-  let legendBodyH = 30; // judul "LEGENDA"
-  for (const g of groups) {
-    legendBodyH += headingH;
-    ctx.font = sans(12.5);
-    for (const l of g.items) {
-      const lines = wrap(ctx, l.name, legendW - 28);
-      legendBodyH += Math.max(itemH, lines.length * 16 + 6);
-    }
-    legendBodyH += 6;
-  }
-  if (groups.length === 0) legendBodyH += 22;
-
-  const bodyTop = dividerY + 20;
-  const mapH = 420;
-  const bodyH = Math.max(mapH, legendBodyH);
-  const footerH = 40;
-  const H = bodyTop + bodyH + footerH;
-
-  // ── set ukuran canvas (device px) ──
-  canvas.width = Math.round(W * pr);
-  canvas.height = Math.round(H * pr);
-  canvas.style.width = W + "px";
-  canvas.style.height = H + "px";
-  ctx.setTransform(pr, 0, 0, pr, 0, 0);
-
-  // ── latar kartu ──
+  ctx.setTransform(pxRatio, 0, 0, pxRatio, 0, 0);
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = HAIR;
-  ctx.lineWidth = 1;
-  roundRect(ctx, 0.5, 0.5, W - 1, H - 1, 14);
-  ctx.stroke();
-  // aksen atas
-  ctx.fillStyle = ACCENT;
-  roundRect(ctx, 0, 0, W, 5, 0);
-  ctx.fill();
-
-  // ── kepala: eyebrow + tanggal ──
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = ACCENT;
-  ctx.font = sans(11, "700");
-  ctx.fillText("DITPIT · BAPPENAS", P, P + 12);
-  ctx.fillStyle = SUBTLE;
-  ctx.font = mono(11);
-  const dStr = formatDate(date);
-  ctx.textAlign = "right";
-  ctx.fillText(dStr, W - P, P + 12);
-  ctx.textAlign = "left";
-
-  // judul
-  ctx.fillStyle = INK;
-  ctx.font = sans(26, "700");
-  titleLines.forEach((ln, i) => ctx.fillText(ln, P, headTop + 22 + i * titleLH));
-  // subjudul
-  ctx.fillStyle = SUBTLE;
-  ctx.font = sans(13);
-  const sub = `Provinsi ${opts.province} · ${opts.layers.length} layer aktif`;
-  ctx.fillText(sub, P, headTop + titleLines.length * titleLH + 14);
-
-  // divider
-  ctx.strokeStyle = HAIR;
-  ctx.beginPath();
-  ctx.moveTo(P, dividerY);
-  ctx.lineTo(W - P, dividerY);
-  ctx.stroke();
-
-  // ── panel peta ──
-  const mx = P;
-  const my = bodyTop;
-  ctx.fillStyle = "#0c1422";
-  roundRect(ctx, mx, my, mapW, mapH, 10);
-  ctx.fill();
-  ctx.save();
-  roundRect(ctx, mx, my, mapW, mapH, 10);
-  ctx.clip();
-  if (opts.mapImage) {
-    // cover-fit tangkapan peta asli
-    const iw = (opts.mapImage as HTMLCanvasElement).width || mapW;
-    const ih = (opts.mapImage as HTMLCanvasElement).height || mapH;
-    const scale = Math.max(mapW / iw, mapH / ih);
-    const dw = iw * scale, dh = ih * scale;
-    ctx.drawImage(opts.mapImage, mx + (mapW - dw) / 2, my + (mapH - dh) / 2, dw, dh);
-  } else {
-    // grid placeholder (sama gaya dengan kanvas di dashboard)
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
-    ctx.lineWidth = 1;
-    for (let gx = mx; gx < mx + mapW; gx += 34) {
-      ctx.beginPath(); ctx.moveTo(gx, my); ctx.lineTo(gx, my + mapH); ctx.stroke();
-    }
-    for (let gy = my; gy < my + mapH; gy += 34) {
-      ctx.beginPath(); ctx.moveTo(mx, gy); ctx.lineTo(mx + mapW, gy); ctx.stroke();
-    }
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
-    ctx.font = sans(12, "600");
-    ctx.textAlign = "center";
-    ctx.fillText("PRATINJAU PETA", mx + mapW / 2, my + mapH / 2 + 4);
-    ctx.font = sans(10);
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
-    ctx.fillText("kanvas peta tampil di sini saat layer dirender", mx + mapW / 2, my + mapH / 2 + 22);
-    ctx.textAlign = "left";
+  ctx.fillRect(0, 0, LW, H);
+  let y = PAD;
+  for (const o of legendOps(ctx, model)) {
+    o.draw(ctx, y);
+    y += o.h;
   }
-  ctx.restore();
-  // bingkai peta
-  ctx.strokeStyle = HAIR;
-  roundRect(ctx, mx, my, mapW, mapH, 10);
-  ctx.stroke();
+}
 
-  // panah utara
-  const nx = mx + mapW - 24, ny = my + 26;
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  poly(ctx, [[nx, ny - 12], [nx + 6, ny + 6], [nx, ny + 1], [nx - 6, ny + 6]]);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = sans(10, "700");
-  ctx.textAlign = "center";
-  ctx.fillText("U", nx, ny - 15);
-  ctx.textAlign = "left";
+/**
+ * Peta (kanvas MapLibre apa adanya) + legenda di kanan → satu PNG.
+ * `mapCanvas` harus dari peta dengan preserveDrawingBuffer:true.
+ */
+export function composeMapExport(mapCanvas: HTMLCanvasElement, model: LegendModel, dpr: number): HTMLCanvasElement {
+  const legend = document.createElement("canvas");
+  renderLegend(legend, model, dpr);
+  const mw = mapCanvas.width, mh = mapCanvas.height;
+  const out = document.createElement("canvas");
+  out.width = mw + legend.width;
+  out.height = Math.max(mh, legend.height);
+  const ctx = out.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(mapCanvas, 0, 0);
+  ctx.drawImage(legend, mw, 0);
+  // garis pemisah tipis antara peta & legenda
+  ctx.fillStyle = HAIR;
+  ctx.fillRect(mw, 0, Math.max(1, Math.round(dpr)), out.height);
+  return out;
+}
 
-  // skala bar (placeholder visual)
-  const sbx = mx + 18, sby = my + mapH - 20, sbw = 88;
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(sbx, sby); ctx.lineTo(sbx, sby - 5);
-  ctx.moveTo(sbx, sby); ctx.lineTo(sbx + sbw, sby);
-  ctx.moveTo(sbx + sbw, sby); ctx.lineTo(sbx + sbw, sby - 5);
-  ctx.stroke();
-  ctx.font = sans(9.5);
-  ctx.fillText("skala", sbx, sby - 8);
-
-  // ── legenda ──
-  const lx = mx + mapW + 22;
-  let ly = bodyTop + 4;
-  ctx.fillStyle = PANEL_BG;
-  roundRect(ctx, lx, bodyTop, legendW, bodyH, 10);
-  ctx.fill();
-  ctx.strokeStyle = HAIR;
-  roundRect(ctx, lx, bodyTop, legendW, bodyH, 10);
-  ctx.stroke();
-
-  const padX = lx + 14;
-  ly = bodyTop + 22;
-  ctx.fillStyle = INK;
-  ctx.font = sans(11, "700");
-  ctx.fillText("LEGENDA", padX, ly);
-  ly += 16;
-
-  if (groups.length === 0) {
-    ctx.fillStyle = SUBTLE;
-    ctx.font = sans(12);
-    ctx.fillText("Belum ada layer aktif.", padX, ly + 6);
-  }
-
-  for (const g of groups) {
-    ctx.fillStyle = ACCENT;
-    ctx.font = sans(10.5, "700");
-    ctx.fillText(g.heading.toUpperCase(), padX, ly + 10);
-    ly += headingH;
-    for (const l of g.items) {
-      drawSwatch(ctx, l, padX, ly - 13, 16);
-      ctx.fillStyle = INK;
-      ctx.font = sans(12.5);
-      const lines = wrap(ctx, l.name, legendW - 28);
-      lines.forEach((ln, i) => ctx.fillText(ln, padX + 24, ly - 1 + i * 15));
-      ly += Math.max(itemH, lines.length * 16 + 6);
-    }
-    ly += 6;
-  }
-
-  // ── footer ──
-  const fy = bodyTop + bodyH + 22;
-  ctx.strokeStyle = HAIR;
-  ctx.beginPath();
-  ctx.moveTo(P, fy - 12);
-  ctx.lineTo(W - P, fy - 12);
-  ctx.stroke();
-  ctx.fillStyle = SUBTLE;
-  ctx.font = sans(10.5);
-  ctx.fillText("Sumber: Direktorat (DITPIT) · Kementerian PPN/Bappenas", P, fy + 2);
-  ctx.textAlign = "right";
-  ctx.font = mono(10.5);
-  ctx.fillText(`Dibuat ${dStr}`, W - P, fy + 2);
-  ctx.textAlign = "left";
+/** Unduh kanvas sebagai PNG. */
+export function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }, "image/png");
 }

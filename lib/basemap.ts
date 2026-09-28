@@ -1,150 +1,102 @@
-// Registry basemap dashboard DITPIT.
+// Registry basemap dashboard DITPIT — semuanya GRATIS & tanpa API key.
 //
-// Prinsip: peta TIDAK PERNAH kosong dan SELALU tampil tanpa perlu data —
-// persis seperti basemap di GEE. Karena itu semua basemap online memakai
-// RASTER TILE (satu endpoint gambar), bukan style vektor (yang butuh
-// style.json + sprite + glyph + tiles → banyak titik gagal di jaringan tertutup).
-// Tambahan gaya "Polos" sepenuhnya LOKAL untuk fallback offline terakhir.
+//  • Peta    : OpenStreetMap gaya "Positron" (putih–abu, CARTO) — latar netral
+//              agar warna choropleth/layer tematik menonjol.
+//  • Satelit : Esri World Imagery + label batas & nama tempat (Esri).
+//              (Citra satelit Google tidak punya akses tile gratis yang sah —
+//               pemakaian langsung mt*.google.com melanggar ketentuan Google.)
+//  • Polos   : latar putih bersih, tanpa jaringan sama sekali.
+//
+// Semua basemap online memakai RASTER TILE (satu endpoint gambar) dan mendukung
+// CORS, sehingga peta bisa diekspor ke PNG. Bila tile gagal dimuat (jaringan
+// tertutup), peta otomatis jatuh ke gaya "Wilayah" (batas kab/kota lokal).
 
 import type { StyleSpecification } from "maplibre-gl";
 
-export type BasemapId = "wilayah" | "voyager" | "gelap" | "satelit" | "polos";
-export type BasemapKind = "raster" | "local";
+export type BasemapId = "peta" | "satelit" | "polos" | "wilayah";
 
 export interface BasemapDef {
   id: BasemapId;
   label: string;
-  kind: BasemapKind;
   /** true bila tidak butuh internet sama sekali (aman di jaringan tertutup). */
   offline: boolean;
   icon: string;
+  /** atribusi wajib (dicantumkan juga pada PNG ekspor) */
+  attribution: string;
+  /** tampil di pemilih basemap? ("wilayah" hanya cadangan otomatis) */
+  picker: boolean;
 }
+
+const OSM_CARTO = "© OpenStreetMap contributors © CARTO";
+const ESRI = "Citra © Esri, Maxar, Earthstar Geographics";
 
 export const BASEMAPS: BasemapDef[] = [
-  // "Peta"/"Satelit"/"Gelap" = MapTiler (butuh NEXT_PUBLIC_MAPTILER_KEY + jaringan).
-  // Bila tile MapTiler gagal/diblokir, peta OTOMATIS jatuh ke "Wilayah" (batas
-  // kabupaten asli, 100% offline) → muka utama TIDAK PERNAH kosong.
-  { id: "voyager", label: "Peta", kind: "raster", offline: false, icon: "globe" },
-  { id: "satelit", label: "Satelit", kind: "raster", offline: false, icon: "mappin" },
-  { id: "wilayah", label: "Wilayah", kind: "local", offline: true, icon: "layers" },
-  { id: "gelap", label: "Gelap", kind: "raster", offline: false, icon: "moon" },
-  { id: "polos", label: "Polos", kind: "local", offline: true, icon: "layers" },
+  { id: "peta", label: "Peta", offline: false, icon: "map", attribution: OSM_CARTO, picker: true },
+  { id: "satelit", label: "Satelit", offline: false, icon: "globe", attribution: ESRI, picker: true },
+  { id: "polos", label: "Polos", offline: true, icon: "layers", attribution: "", picker: true },
+  { id: "wilayah", label: "Wilayah (offline)", offline: true, icon: "layers", attribution: "", picker: false },
 ];
+export const DEFAULT_BASEMAP: BasemapId = "peta";
 
-// helper: style raster 1-source dari URL template tile.
-// Selalu ada layer "bg" berwarna DI BAWAH tile: kalau tile gagal dimuat
-// (mis. diblokir jaringan), area peta tetap berwarna — bukan kosong transparan.
-function rasterStyle(
-  tiles: string[],
-  attribution: string,
-  bg = "#e6edf5",
-  maxzoom = 19
-): StyleSpecification {
+function rasterStyle(layers: { id: string; tiles: string[]; maxzoom?: number }[], attribution: string, bg: string): StyleSpecification {
   return {
     version: 8,
-    sources: {
-      base: { type: "raster", tiles, tileSize: 256, attribution, maxzoom },
-    },
+    sources: Object.fromEntries(
+      layers.map((l, i) => [l.id, { type: "raster", tiles: l.tiles, tileSize: 256, attribution: i === 0 ? attribution : undefined, maxzoom: l.maxzoom ?? 19 }])
+    ) as StyleSpecification["sources"],
     layers: [
+      // latar berwarna DI BAWAH tile: bila tile gagal, area peta tetap berwarna (bukan transparan)
       { id: "bg", type: "background", paint: { "background-color": bg } },
-      { id: "base", type: "raster", source: "base" },
+      ...layers.map((l) => ({ id: l.id, type: "raster" as const, source: l.id })),
     ],
   };
 }
 
-// Latar polos lokal — hanya satu layer background, NOL request jaringan.
-function localStyle(theme: "light" | "dark"): StyleSpecification {
-  return {
-    version: 8,
-    sources: {},
-    layers: [
-      {
-        id: "latar",
-        type: "background",
-        paint: { "background-color": theme === "dark" ? "#0a1422" : "#dde6f1" },
-      },
-    ],
-  };
-}
+// Positron resolusi tinggi (@2x) — tajam di layar retina & saat diekspor
+const positron = ["a", "b", "c", "d"].map((s) => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png`);
+const esriImagery = ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"];
+const esriLabels = ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"];
 
-// Basemap WILAYAH — 100% offline, digambar dari batas kabupaten asli
-// (Maluku & Nusa Tenggara) yang sudah disederhanakan ke ~120 KB di
-// public/data/maluku_nusra.geojson. Same-origin, NOL request tile eksternal,
-// jadi peta wilayah LANGSUNG tampil walau internet/CDN/Google diblokir total.
+// Batas kab/kota lokal (public/data/maluku_nusra.geojson) — NOL request eksternal.
 function localLandStyle(theme: "light" | "dark"): StyleSpecification {
-  const sea = theme === "dark" ? "#0b1b2e" : "#aacbe6";
-  const land = theme === "dark" ? "#23415e" : "#f3efe2";
-  const coast = theme === "dark" ? "rgba(180,205,235,0.55)" : "rgba(90,120,90,0.7)";
+  const sea = theme === "dark" ? "#0b1b2e" : "#dfe8f1";
+  const land = theme === "dark" ? "#23415e" : "#fbfaf6";
+  const coast = theme === "dark" ? "rgba(180,205,235,0.55)" : "rgba(110,125,140,0.7)";
   return {
     version: 8,
-    sources: {
-      wilayah: { type: "geojson", data: "/data/maluku_nusra.geojson" },
-    },
+    sources: { wilayah: { type: "geojson", data: "/data/maluku_nusra.geojson" } },
     layers: [
       { id: "laut", type: "background", paint: { "background-color": sea } },
       { id: "darat", type: "fill", source: "wilayah", paint: { "fill-color": land } },
-      {
-        id: "garis-pantai",
-        type: "line",
-        source: "wilayah",
-        paint: { "line-color": coast, "line-width": 0.7 },
-      },
+      { id: "garis-pantai", type: "line", source: "wilayah", paint: { "line-color": coast, "line-width": 0.7 } },
     ],
   };
 }
 
-const MAPTILER_ATTR = "© MapTiler © OpenStreetMap contributors";
-
-// Kunci MapTiler dari .env.local (NEXT_PUBLIC_ → tersedia di sisi klien).
-const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "";
-
-// Diagnostik sekali jalan: tunjukkan apakah key benar-benar "terbakar" ke
-// bundle. Jika "KOSONG" → server perlu di-restart/rebuild SETELAH .env.local.
-if (typeof window !== "undefined") {
-  console.log(
-    `[basemap] MapTiler key: ${
-      MAPTILER_KEY ? `OK (${MAPTILER_KEY.length} karakter)` : "KOSONG — .env.local belum terbaca, restart/rebuild server"
-    }`
-  );
-}
-
-// Endpoint RASTER MapTiler (256px). mapId mis. "streets-v2" (jalan),
-// "hybrid" (satelit + label), "streets-v2-dark" (gelap), "satellite" (citra).
-function maptilerTiles(mapId: string, ext: "png" | "jpg" = "png"): string[] {
-  return [
-    `https://api.maptiler.com/maps/${mapId}/256/{z}/{x}/{y}.${ext}?key=${MAPTILER_KEY}`,
-  ];
-}
-
-/** true bila kunci MapTiler tersedia (kalau tidak, basemap online dilewati). */
-export const hasMaptiler = MAPTILER_KEY.length > 0;
-
 /** Style untuk basemap terpilih. */
-export function basemapStyle(
-  id: BasemapId,
-  theme: "light" | "dark"
-): string | StyleSpecification {
+export function basemapStyle(id: BasemapId, theme: "light" | "dark"): StyleSpecification {
   switch (id) {
-    case "voyager":
-      // MapTiler Streets — basemap jalan/standar.
-      return rasterStyle(maptilerTiles("streets-v2"), MAPTILER_ATTR);
+    case "peta":
+      return rasterStyle([{ id: "base", tiles: positron, maxzoom: 20 }], OSM_CARTO, "#f2f2f0");
     case "satelit":
-      // MapTiler Hybrid — citra satelit + label jalan.
-      return rasterStyle(maptilerTiles("hybrid", "jpg"), MAPTILER_ATTR, "#0b1a2b");
-    case "gelap":
-      // MapTiler Streets (gelap).
-      return rasterStyle(maptilerTiles("streets-v2-dark"), MAPTILER_ATTR, "#0a1422");
+      return rasterStyle(
+        [
+          { id: "base", tiles: esriImagery },
+          { id: "labels", tiles: esriLabels },
+        ],
+        ESRI,
+        "#0b1a2b"
+      );
     case "wilayah":
       return localLandStyle(theme);
     case "polos":
     default:
-      return localStyle(theme);
+      // putih bersih di tema terang maupun gelap
+      return { version: 8, sources: {}, layers: [{ id: "latar", type: "background", paint: { "background-color": "#ffffff" } }] };
   }
 }
 
-/** Fallback yang dijamin tampil bila basemap online gagal dimuat.
- *  Memakai GeoJSON wilayah (offline) supaya peta tetap menampilkan
- *  bentuk wilayah, bukan sekadar latar polos kosong. */
+/** Cadangan bila basemap online gagal: batas wilayah lokal (tetap tampil offline). */
 export function fallbackStyle(theme: "light" | "dark"): StyleSpecification {
   return localLandStyle(theme);
 }

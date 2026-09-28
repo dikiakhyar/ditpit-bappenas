@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import AppHeader from "@/components/app/AppHeader";
+import DataSource from "@/components/app/DataSource";
 import { Icon } from "@/components/ui/icons";
 import { useProfil } from "@/lib/profil/useProfil";
 import type { Engine } from "@/lib/profil/engine";
@@ -238,9 +239,12 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
             ))}
 
             <footer className="card card-body text-[12.5px] leading-relaxed text-ink-2">
+              <div className="mb-3">
+                <DataSource />
+              </div>
               <p className="font-semibold text-foreground">Tentang data</p>
               <p className="mt-1">
-                Semua angka berasal dari berkas Database PIT (sheet per indikator; sumber utama BPS Simdasi dan instansi terkait seperti tertera di
+                Semua angka dibaca langsung dari Google Spreadsheet Database PIT (sheet per indikator; sumber utama BPS Simdasi dan instansi terkait seperti tertera di
                 tiap kartu). Cakupan: {E.coverage.provinsi} provinsi · {E.coverage.kabkota} kabupaten/kota · {E.coverage.tabel} tabel indikator. Jika data
                 kab/kota tidak tersedia, kartu menampilkan angka provinsi dan diberi keterangan.
               </p>

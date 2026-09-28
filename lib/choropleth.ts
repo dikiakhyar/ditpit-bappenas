@@ -37,6 +37,7 @@ export interface Baked {
   max: number | null;
   colorExpr: unknown; // ekspresi fill-color MapLibre
   count: number; // jumlah KabKota berdata
+  present?: Set<string>; // kelas kategorikal yang muncul
 }
 
 export interface RankItem {
@@ -61,6 +62,7 @@ export function bake(
   const rKey = rankKey(indId, year);
 
   const nums: number[] = [];
+  const present = new Set<string>();
   const features = kabkota.features.map((f) => {
     const kode = String(f.properties?.[CODE_PROP] ?? "");
     const row = data?.[kode];
@@ -78,7 +80,10 @@ export function bake(
       }
     } else {
       const c = getRaw(row, vKey);
-      if (typeof c === "string" && c) props.__c = c;
+      if (typeof c === "string" && c) {
+        props.__c = c;
+        present.add(c);
+      }
     }
     const rank = getRaw(row, rKey);
     if (rank !== null && rank !== undefined && rank !== "") props.__rank = rank;
@@ -99,6 +104,7 @@ export function bake(
     max: nums.length ? Math.max(...nums) : null,
     colorExpr,
     count: numeric ? nums.length : features.filter((f) => f.properties.__c).length,
+    present,
   };
 }
 
