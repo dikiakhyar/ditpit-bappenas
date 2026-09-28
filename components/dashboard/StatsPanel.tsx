@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { openProfil } from "@/lib/profil/location";
 import { useMemo } from "react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
@@ -14,6 +16,7 @@ import { nf } from "@/lib/profil/format";
 /** Tab "Wilayah": ringkasan kab/kota yang diklik di peta + tautan ke Profil Daerah. */
 export default function StatsPanel() {
   const { selectedKode, setSelectedKode, kabkota, makroData, makroSel } = useDashboard();
+  const router = useRouter();
   const { E, error } = useProfil();
 
   // daftar pilihan: provinsi peta + kab/kota yang punya batas di kabkota.geojson
@@ -104,7 +107,15 @@ export default function StatsPanel() {
             <p className="text-[12px] text-muted">Wilayah ini belum ada di data profil.</p>
           )}
 
-          <Link href={`/profil?kode=${k}`} className="btn btn-primary w-full">
+          <Link
+            href={`/profil?kode=${k}`}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              e.preventDefault();
+              openProfil(router, k);
+            }}
+            className="btn btn-primary w-full"
+          >
             Buka profil lengkap
             <Icon name="arrowRight" className="h-4 w-4" />
           </Link>

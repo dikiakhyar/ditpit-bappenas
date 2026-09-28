@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadProfil, refreshProfil, type Engine } from "./engine";
+import { fetchLatest, loadProfil, refreshProfil, type Engine } from "./engine";
 
 // Penyimpan bersama: semua komponen (peta, panel, profil) memakai satu Engine,
 // dan tombol "Perbarui" memperbarui semuanya sekaligus.
@@ -10,6 +10,29 @@ let lastError: string | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((f) => f());
 
+// Bila server baru bangun, ia mengirim salinan lokal dulu (source.refreshing) sambil
+// membaca spreadsheet. Browser lalu mengecek ulang diam-diam sampai data terbaru siap.
+let polling = false;
+function pollWhileRefreshing(tries = 12) {
+  if (polling || !current?.source?.refreshing) return;
+  polling = true;
+  const tick = (left: number) =>
+    setTimeout(async () => {
+      try {
+        const e = await fetchLatest();
+        if (!e.source?.refreshing || left <= 1) {
+          current = e;
+          emit();
+          polling = false;
+          return;
+        }
+      } catch {}
+      if (left > 1) tick(left - 1);
+      else polling = false;
+    }, 5000);
+  tick(tries);
+}
+
 function ensureLoaded() {
   if (current) return;
   loadProfil()
@@ -17,6 +40,7 @@ function ensureLoaded() {
       current = e;
       lastError = null;
       emit();
+      pollWhileRefreshing();
     })
     .catch((err) => {
       lastError = String(err?.message ?? err);

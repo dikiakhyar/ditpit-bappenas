@@ -19,7 +19,7 @@ export interface ProfilData {
   meta: Record<string, { n: string; s: string }>;
   status: string[];
   /** Asal data (diisi oleh /api/database). */
-  source?: { kind: "spreadsheet" | "snapshot"; fetchedAt: string; sheetUrl: string; note?: string };
+  source?: { kind: "spreadsheet" | "snapshot"; fetchedAt: string; sheetUrl: string; note?: string; refreshing?: boolean };
 }
 export type Better = "up" | "down" | 0;
 
@@ -196,6 +196,15 @@ export function loadProfil(): Promise<Engine> {
   }
   return cache;
 }
+/** Ambil data terbaru dari server (melewati cache browser/CDN). */
+export async function fetchLatest(): Promise<Engine> {
+  const r = await fetch(`/api/database?t=${Date.now()}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const e = createEngine((await r.json()) as ProfilData);
+  cache = Promise.resolve(e);
+  return e;
+}
+
 /** Paksa server membaca ulang spreadsheet, lalu muat ulang data di browser. */
 export async function refreshProfil(): Promise<Engine> {
   await fetch("/api/database/refresh", { method: "POST" }).catch(() => {});

@@ -19,6 +19,13 @@ Google Spreadsheet  ──(unduh .xlsx, maks. sekali/5 menit)──▶  /api/dat
 - Label hijau **"Database: Google Spreadsheet · dibaca …"** = data langsung dari spreadsheet.
   Label kuning **"salinan lokal"** = spreadsheet sedang tak terbaca (izin berbagi / jaringan).
 
+## Kecepatan
+- Server menyimpan hasil baca spreadsheet di memori (±5 menit) dan mengirim data **terkompresi gzip** (±0,7 MB).
+- Saat server baru "bangun" (cold start), situs **langsung** tampil memakai salinan lokal, sementara spreadsheet
+  dibaca di latar belakang; beberapa detik kemudian data terbaru otomatis menggantikannya (label
+  "Memuat data terbaru dari spreadsheet…"). Pengunjung tidak perlu menunggu unduhan Google.
+- Kunjungan ulang memakai ETag → bila data belum berubah, tidak ada yang diunduh ulang.
+
 ## Aturan format sheet
 Setiap sheet data memakai kolom: `region_code | province | regency | item | units | <periode…>`
 - `region_code` = kode BPS (4 digit); **9999 atau 0 = Indonesia (nasional)**.

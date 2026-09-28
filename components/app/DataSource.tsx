@@ -14,6 +14,13 @@ export default function DataSource({ compact }: { compact?: boolean }) {
   const src = E?.source;
   if (!src) return null;
   const live = src.kind === "spreadsheet";
+  if (src.refreshing)
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-[11.5px] text-ink-2">
+        <span className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-primary" />
+        Memuat data terbaru dari spreadsheet… (sementara menampilkan salinan terakhir)
+      </div>
+    );
 
   return (
     <div className={`rounded-md border px-3 py-2 text-[11.5px] leading-snug ${live ? "border-border bg-surface-2 text-ink-2" : "border-warn/30 bg-warn-lt text-warn"}`}>

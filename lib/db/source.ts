@@ -23,6 +23,8 @@ export interface DataSourceInfo {
   sheetUrl: string;
   note?: string;
   stats?: BuildStats;
+  /** true = salinan lokal sementara; spreadsheet sedang dibaca di latar belakang */
+  refreshing?: boolean;
 }
 export type Database = ProfilData & { source: DataSourceInfo };
 
@@ -107,10 +109,41 @@ function rebuild(): Promise<Database> {
   return g.__ditpitInflight;
 }
 
-/** Database dengan cache: `force` = baca ulang spreadsheet sekarang. */
+/** Database dengan cache: `force` = baca ulang spreadsheet sekarang (menunggu hasilnya). */
 export async function getDatabase(opts: { force?: boolean } = {}): Promise<Database> {
   const mem = g.__ditpitDb;
   if (opts.force || !mem) return rebuild();
   if (Date.now() - mem.at > REFRESH_SECONDS * 1000) void rebuild().catch(() => {});
   return mem.db;
+}
+
+let snapshot: Promise<Database> | null = null;
+/**
+ * Versi CEPAT untuk pengunjung: tidak pernah menunggu Google.
+ * - Ada data di memori → langsung dikembalikan (dibaca ulang di latar bila > 5 menit).
+ * - Server baru bangun (cold start) → langsung kirim salinan lokal bertanda `refreshing`,
+ *   sementara spreadsheet dibaca di latar. `pending` = pekerjaan latar tsb (untuk after()).
+ */
+export async function getDatabaseFast(): Promise<{ db: Database; pending: Promise<unknown> | null }> {
+  const mem = g.__ditpitDb;
+  if (mem) {
+    const stale = Date.now() - mem.at > REFRESH_SECONDS * 1000;
+    return { db: mem.db, pending: stale ? rebuild().catch(() => {}) : null };
+  }
+  const pending = rebuild().catch(() => {});
+  snapshot ??= readSnapshot()
+    .then((d): Database => ({
+      ...d,
+      source: { kind: "snapshot", fetchedAt: new Date().toISOString(), sheetUrl: SHEET_URL, refreshing: true, note: "Memuat data terbaru dari spreadsheet…" },
+    }))
+    .catch((e) => {
+      snapshot = null;
+      throw e;
+    });
+  try {
+    return { db: await snapshot, pending };
+  } catch {
+    // salinan lokal tak ada → terpaksa menunggu spreadsheet
+    return { db: await rebuild(), pending: null };
+  }
 }

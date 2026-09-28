@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { consumePending, goToRegion, notifyLocation, readKode, subscribeLocation } from "@/lib/profil/location";
 import AppHeader from "@/components/app/AppHeader";
 import DataSource from "@/components/app/DataSource";
 import { Icon } from "@/components/ui/icons";
@@ -20,29 +21,43 @@ const DEFAULT = "5300";
 
 export default function ProfilView() {
   const { E, error } = useProfil();
-  const params = useSearchParams();
-  const router = useRouter();
-  const kode = params.get("kode");
+  // Wilayah aktif dibaca LANGSUNG dari alamat browser (window.location), bukan dari
+  // cache router Next.js — Next 16 menyimpan halaman yang pernah dibuka beserta URL
+  // lamanya, sehingga pilihan bisa "mental" ke wilayah sebelumnya.
+  useSearchParams(); // tetap berlangganan navigasi Next agar komponen digambar ulang
+  const kode = useSyncExternalStore(subscribeLocation, readKode, () => null);
+  // tujuan yang dicatat saat pindah dari halaman lain (mis. Peta) — jalan tiap kali halaman tampil
+  useEffect(() => consumePending(), []);
 
-  // kode dari URL bila valid; kalau tidak, pakai pilihan terakhir / default
-  const sel = E && kode && kode !== "0" && E.has(kode) ? kode : null;
-  useEffect(() => {
-    if (!E || sel) return;
+  // ?kode valid → pakai; kalau tidak → pilihan terakhir (disimpan di browser) → default
+  const sel = useMemo(() => {
+    if (!E) return null;
+    const ok = (c: string | null): c is string => !!c && c !== "0" && E.has(c);
+    if (ok(kode)) return kode;
     let s: string | null = null;
     try {
       s = localStorage.getItem(LS_KEY);
     } catch {}
-    router.replace(`/profil?kode=${s && E.has(s) && s !== "0" ? s : DEFAULT}`, { scroll: false });
-  }, [E, sel, router]);
+    return ok(s) ? s : DEFAULT;
+  }, [E, kode]);
+
   useEffect(() => {
     if (!sel) return;
+    // sedang berpindah ke halaman lain (mis. Peta) → jangan sentuh alamat
+    if (window.location.pathname !== "/profil") return;
+    // alamat berubah tanpa event (mis. navigasi Next) → baca ulang dulu
+    if (readKode() !== kode) return notifyLocation();
     try {
       localStorage.setItem(LS_KEY, sel);
     } catch {}
     document.title = `${E?.name(sel)} · Profil Daerah — DITPIT Bappenas`;
-  }, [sel, E]);
+    if (kode !== sel) window.history.replaceState(null, "", `/profil?kode=${sel}`);
+  }, [sel, E, kode]);
 
-  const choose = (c: string) => router.push(`/profil?kode=${c}`, { scroll: false });
+  // Ganti wilayah = ubah alamat lewat History API: instan, tanpa permintaan ke server.
+  const choose = useCallback((c: string) => {
+    goToRegion(c);
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -218,8 +233,14 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
           </aside>
 
           <main className="min-w-0 flex-1">
-            {SECTIONS.map((sec) => (
-              <section key={sec.id} id={sec.id} className="scroll-mt-14 pb-8 xl:scroll-mt-5">
+            {SECTIONS.map((sec, si) => (
+              <section
+                key={sec.id}
+                id={sec.id}
+                className="scroll-mt-14 pb-8 xl:scroll-mt-5"
+                // bagian di luar layar tidak digambar browser sampai mendekati layar (lebih ringan)
+                style={si > 1 ? { contentVisibility: "auto", containIntrinsicSize: "auto 1200px" } : undefined}
+              >
                 <div className="mb-3 flex items-start gap-3">
                   <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-lt text-primary">
                     <Icon name={sec.icon} className="h-[18px] w-[18px]" />

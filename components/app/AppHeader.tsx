@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "@/lib/theme";
 import { Icon } from "@/components/ui/icons";
+import { goToRegion, openProfil } from "@/lib/profil/location";
 import { cariWilayah, isProvCode, namaWilayah, type WilayahRow } from "@/lib/wilayah";
 
 const NAV = [
@@ -17,7 +18,21 @@ const NAV = [
  *  tautan halaman dengan garis aktif di bawah, pencarian wilayah, tema. */
 export default function AppHeader({ leading }: { leading?: ReactNode }) {
   const path = usePathname();
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+
+  // Menu "Profil Daerah" membuka wilayah terakhir yang dipilih (disimpan di browser).
+  const openNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href !== "/profil" || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    let last: string | null = null;
+    try {
+      last = localStorage.getItem("pdit-sel");
+    } catch {}
+    e.preventDefault();
+    if (window.location.pathname === "/profil") return;
+    if (last) openProfil(router, last);
+    else router.push("/profil");
+  };
 
   return (
     <header className="z-30 shrink-0 border-b border-border bg-surface">
@@ -38,6 +53,7 @@ export default function AppHeader({ leading }: { leading?: ReactNode }) {
               <Link
                 key={n.href}
                 href={n.href}
+                onClick={(e) => openNav(e, n.href)}
                 aria-current={on ? "page" : undefined}
                 className={`relative flex items-center gap-2 px-3 text-[13.5px] font-medium transition-colors ${
                   on ? "text-primary" : "text-ink-2 hover:text-foreground"
@@ -67,6 +83,7 @@ export default function AppHeader({ leading }: { leading?: ReactNode }) {
             <Link
               key={n.href}
               href={n.href}
+              onClick={(e) => openNav(e, n.href)}
               aria-current={on ? "page" : undefined}
               className={`relative flex flex-1 items-center justify-center gap-1.5 py-2 text-[13px] font-medium ${
                 on ? "text-primary" : "text-ink-2"
@@ -116,7 +133,9 @@ function RegionSearch() {
     setOpen(false);
     setQ("");
     inputRef.current?.blur();
-    router.push(`/profil?kode=${w[0]}`);
+    // sudah di halaman Profil → ganti wilayah instan (History API), selain itu pindah halaman
+    if (window.location.pathname === "/profil") goToRegion(w[0]);
+    else openProfil(router, w[0]);
   };
 
   return (
