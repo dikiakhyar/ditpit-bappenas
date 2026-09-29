@@ -50,6 +50,23 @@ Setiap sheet data memakai kolom: `region_code | province | regency | item | unit
   memakai kode **Kemendagri** yang sering berbeda dari kode BPS, jadi kab/kota dipasangkan lewat **nama**.
 - Diabaikan: Metadata, Metadata Non-BPS, Pivot Table 2, Sheet61, Sheet36, Progres, LPE_PDB_Unpivot, IDSD.
 
+## Nilai kosong ≠ 0
+Sel kosong, `N/A`, `-` di spreadsheet dibaca sebagai **tidak ada data** dan tampil sebagai "Tidak ada data" di situs
+(kartu, tabel, tooltip peta, panel). Angka 0 hanya tampil bila selnya memang berisi 0. Jadi bila di spreadsheet sebuah
+nilai belum diketahui, **kosongkan selnya — jangan diisi 0**.
+
+## Indonesia Timur (agregat kawasan)
+Wilayah virtual kode `KTI` = gabungan seluruh provinsi di database (`lib/profil/kawasan.ts`), dihitung di browser saat
+data dimuat (±50 ms). Muncul di Profil Daerah (pilihan provinsi paling atas), tab Wilayah, tab Makro, dan pencarian.
+- Besaran (rupiah, jiwa, unit, ton, desa, luas, …) **dijumlahkan** — hanya bila SEMUA provinsi berdata.
+- PDRB per kapita = Σ PDRB ÷ Σ penduduk; LPE = rata-rata tertimbang PDRB ADHK periode sebelumnya (= pertumbuhan PDRB gabungan);
+  distribusi PDRB = Σ sektor ÷ Σ total; % penduduk miskin = Σ miskin ÷ Σ (miskin ÷ %).
+- Persen/indeks/rasio lain = rata-rata tertimbang jumlah penduduk (penduduk = PDRB ADHB ÷ per kapita ADHB),
+  bila provinsi berdata mencakup ≥ 90% penduduk kawasan.
+- Kurang dari itu → "Tidak ada data" (tidak dijumlah/dirata-rata sebagian).
+- Postur APBD kawasan = gabungan APBD **pemerintah provinsi** (tanpa APBD kab/kota).
+- Tampilan "Peringkat" untuk Indonesia Timur = perbandingan seluruh provinsi, garis = nilai kawasan.
+
 ## Pengaturan (opsional, lewat environment variable)
 | Variabel | Fungsi |
 |---|---|

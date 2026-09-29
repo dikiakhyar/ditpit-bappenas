@@ -10,7 +10,8 @@ import { useProfil } from "@/lib/profil/useProfil";
 import { TipProvider } from "@/components/profil/charts";
 import { Tiles } from "@/components/profil/Tiles";
 import { findIndicator, formatValue, getNumber, getRaw, rankKey, valueKey } from "@/lib/makro";
-import { MAP_PROV_CODES, namaWilayah, isProvCode, provOfCode } from "@/lib/wilayah";
+import { MAP_PROV_CODES, namaWilayah, isProvCode, provOfCode, isKawasan, KAWASAN, KAWASAN_NAMA } from "@/lib/wilayah";
+import KawasanSummary from "./KawasanSummary";
 import { nf } from "@/lib/profil/format";
 import FocusModeToggle from "./FocusModeToggle";
 
@@ -33,7 +34,7 @@ export default function StatsPanel() {
   const found = findIndicator(makroSel.indId);
   const row = k ? makroData?.[k] : undefined;
   const vKey = valueKey(makroSel.indId, makroSel.year);
-  const mv = found && (found.ind.kind ?? "numeric") === "numeric" ? formatValue(getNumber(row, vKey), found.ind.format) : String(getRaw(row, vKey) ?? "—");
+  const mv = found && (found.ind.kind ?? "numeric") === "numeric" ? formatValue(getNumber(row, vKey), found.ind.format) : String(getRaw(row, vKey) ?? "Tidak ada data");
   const rank = getRaw(row, rankKey(makroSel.indId, makroSel.year));
 
   return (
@@ -42,6 +43,7 @@ export default function StatsPanel() {
         <span className="subheader">Wilayah</span>
         <select className="form-select" value={k ?? ""} onChange={(e) => setSelectedKode(e.target.value || null)}>
           <option value="">— Klik peta atau pilih di sini —</option>
+          <option value={KAWASAN}>{KAWASAN_NAMA} (seluruh kawasan · {MAP_PROV_CODES.length} provinsi)</option>
           {options.map(({ p, kabs }) => (
             <optgroup key={p} label={namaWilayah(p)}>
               <option value={p}>{namaWilayah(p)} (provinsi)</option>
@@ -66,6 +68,10 @@ export default function StatsPanel() {
           <p className="text-[12px] leading-relaxed text-muted">
             Ringkasan indikator utama akan tampil di sini, lengkap dengan tautan ke profil daerahnya.
           </p>
+          <button onClick={() => setSelectedKode(KAWASAN)} className="btn mt-1">
+            <Icon name="globe" className="h-4 w-4 text-primary" />
+            Lihat ringkasan {KAWASAN_NAMA}
+          </button>
         </div>
       ) : (
         <>
@@ -74,14 +80,20 @@ export default function StatsPanel() {
               <div className="min-w-0">
                 <p className="truncate text-[15px] font-semibold">{namaWilayah(k)}</p>
                 <p className="text-[12px] text-muted">
-                  <span className="font-mono">{k}</span> · {isProvCode(k) ? "Provinsi" : namaWilayah(provOfCode(k))}
+                  <span className="font-mono">{k}</span> ·{" "}
+                  {isKawasan(k) ? `Gabungan ${MAP_PROV_CODES.length} provinsi` : isProvCode(k) ? "Provinsi" : namaWilayah(provOfCode(k))}
                 </p>
               </div>
               <button onClick={() => setSelectedKode(null)} aria-label="Hapus pilihan" className="rounded p-1 text-muted hover:bg-surface-2 hover:text-foreground">
                 <Icon name="x" className="h-4 w-4" />
               </button>
             </div>
-            {found && !isProvCode(k) && (
+            {isKawasan(k) && (
+              <div className="px-3 py-2.5">
+                <KawasanSummary />
+              </div>
+            )}
+            {found && !isProvCode(k) && !isKawasan(k) && (
               <div className="px-4 py-2.5">
                 <p className="text-[11.5px] text-muted">
                   Layer makro: {found.ind.label}

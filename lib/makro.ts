@@ -20,7 +20,7 @@ export interface ClassDef {
   value: string;
   color: string;
 }
-type Val = number | string | null;
+export type Val = number | string | null;
 
 export interface IndicatorSrc {
   /** nilai untuk kab/kota `c` pada tahun `y` */
@@ -272,6 +272,46 @@ export const MAKRO_CATEGORIES: MakroCategory[] = [
   },
 ];
 
+// ── ringkasan kawasan "Indonesia Timur" ─────────────────────────────────────
+/** Indikator yang tak bermakna untuk kawasan (mis. persentase penduduk thd provinsi). */
+const NO_KAWASAN = new Set(["persentase_penduduk", "kontribusi_pdrb"]);
+/** Indikator fiskal: nilai kawasan = gabungan APBD PEMERINTAH PROVINSI (bukan kab/kota). */
+export const isApbdIndicator = (id: string) => id.startsWith("apbd_") || id === "rasio_pad" || id === "rasio_belanja_pegawai" || id.startsWith("kapasitas_fiskal");
+
+export interface KawasanSummary {
+  value: Val; // nilai agregat kawasan (lihat lib/profil/kawasan.ts); null = tidak ada data
+  n: number; // jumlah kab/kota berdata di peta
+  total: number; // jumlah kab/kota di peta
+  min: { kode: string; v: number } | null;
+  max: { kode: string; v: number } | null;
+  median: number | null;
+}
+
+/** Nilai Indonesia Timur + sebaran kab/kota (dari data peta) untuk indikator & tahun terpilih. */
+export function kawasanSummary(E: Engine | null, data: MakroData | null, ind: Indicator, year: number | null, kawasan: string): KawasanSummary {
+  let value: Val = null;
+  if (E && year != null && !NO_KAWASAN.has(ind.id)) {
+    try {
+      value = ind.src.get(E, kawasan, year);
+    } catch {
+      value = null;
+    }
+  }
+  const key = valueKey(ind.id, year);
+  const rows = Object.entries(data ?? {});
+  const nums = rows.map(([kode, r]) => ({ kode, v: getNumber(r, key) })).filter((x): x is { kode: string; v: number } => x.v !== null);
+  nums.sort((a, b) => a.v - b.v);
+  const n = (ind.kind ?? "numeric") === "numeric" ? nums.length : rows.filter(([, r]) => getRaw(r, key) != null).length;
+  return {
+    value: typeof value === "number" && !Number.isFinite(value) ? null : value,
+    n,
+    total: rows.length,
+    min: nums[0] ?? null,
+    max: nums[nums.length - 1] ?? null,
+    median: nums.length ? nums[Math.floor((nums.length - 1) / 2)].v : null,
+  };
+}
+
 // ── pencarian indikator ──────────────────────────────────────────────────────
 export function findIndicator(id: string, catalog: MakroCategory[] = MAKRO_CATEGORIES): { cat: MakroCategory; ind: Indicator } | null {
   for (const cat of catalog) {
@@ -494,7 +534,7 @@ const ID = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
 const ID0 = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
 
 export function formatValue(v: number | null | undefined, fmt?: ValFormat): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  if (v === null || v === undefined || !Number.isFinite(v)) return "Tidak ada data";
   switch (fmt) {
     case "persen":
       return `${ID.format(v)}%`;

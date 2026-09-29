@@ -7,7 +7,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "@/lib/theme";
 import { Icon } from "@/components/ui/icons";
 import { goToRegion, openProfil } from "@/lib/profil/location";
-import { cariWilayah, isProvCode, namaWilayah, type WilayahRow } from "@/lib/wilayah";
+import { cariWilayah, isKawasan, isProvCode, namaWilayah, type WilayahRow } from "@/lib/wilayah";
 
 const NAV = [
   { href: "/", label: "Peta Tematik", icon: "map" },
@@ -194,7 +194,7 @@ function RegionSearch() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-medium">{w[1]}</span>
                   <span className="block truncate text-[11.5px] text-muted">
-                    {isProvCode(w[0]) ? "Provinsi" : namaWilayah(w[2])}
+                    {isKawasan(w[0]) ? "Gabungan seluruh provinsi" : isProvCode(w[0]) ? "Provinsi" : namaWilayah(w[2])}
                   </span>
                 </span>
                 <span className="font-mono text-[11px] text-muted">{w[0]}</span>

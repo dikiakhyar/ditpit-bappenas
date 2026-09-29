@@ -20,8 +20,11 @@ export function nf(v: number, d: number): string {
   return v.toLocaleString("id-ID", { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
+/** Teks untuk nilai kosong / tidak tersedia di database (bukan 0). */
+export const NA = "Tidak ada data";
+
 export function fmt(v: unknown, f: Fmt = {}): string {
-  if (!isN(v)) return "–";
+  if (!isN(v)) return NA;
   const x = v * (f.k ?? 1);
   if (f.rp) {
     const a = Math.abs(x);

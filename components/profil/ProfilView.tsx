@@ -12,6 +12,7 @@ import type { Engine } from "@/lib/profil/engine";
 import { CARDS, SECTIONS, type CardDef } from "@/lib/profil/config";
 import { nf } from "@/lib/profil/format";
 import { onMap } from "@/lib/wilayah";
+import { KAWASAN } from "@/lib/profil/kawasan";
 import { TipProvider } from "./charts";
 import { Tiles } from "./Tiles";
 import { ApbdCard, CommodCard, ComposeCard, DesaCard, IppCard, MetricCard, MultiCard, StackCard, WisataCard } from "./cards";
@@ -103,6 +104,7 @@ function Skeleton() {
 // ───────────────────────────────────────────────────────────────────────────
 function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string) => void }) {
   const isP = E.isProv(sel);
+  const isK = E.isKawasan(sel);
   const prov = E.provOf(sel);
   const active = useScrollSpy(SECTIONS.map((s) => s.id), sel);
 
@@ -113,7 +115,10 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
   if (lw) facts.push(["Luas wilayah", nf(lw.v, 0), "km²"]);
   if (pl) facts.push(["Jumlah pulau", nf(pl.v, 0), ""]);
   if (dz?.status) facts.push(["Jumlah desa", nf(dz.status.reduce((a, b) => a + b, 0), 0), ""]);
-  if (isP) facts.push(["Kabupaten/kota", String(E.kabsOf(sel).length), ""]);
+  if (isK) {
+    facts.push(["Provinsi", String(E.PROVS.length), ""]);
+    facts.push(["Kabupaten/kota", String(E.allKabs().length), ""]);
+  } else if (isP) facts.push(["Kabupaten/kota", String(E.kabsOf(sel).length), ""]);
 
   return (
     <>
@@ -123,9 +128,17 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
           <nav className="flex flex-wrap items-center gap-1 text-[12.5px] text-muted" aria-label="Breadcrumb">
             <span>Profil Daerah</span>
             <Icon name="chevronRight" className="h-3.5 w-3.5" />
-            <button onClick={() => choose(prov)} className={isP ? "font-medium text-foreground" : "hover:text-primary hover:underline"}>
-              {E.name(prov)}
+            <button onClick={() => choose(KAWASAN)} className={isK ? "font-medium text-foreground" : "hover:text-primary hover:underline"}>
+              {E.name(KAWASAN)}
             </button>
+            {!isK && (
+              <>
+                <Icon name="chevronRight" className="h-3.5 w-3.5" />
+                <button onClick={() => choose(prov)} className={isP ? "font-medium text-foreground" : "hover:text-primary hover:underline"}>
+                  {E.name(prov)}
+                </button>
+              </>
+            )}
             {!isP && (
               <>
                 <Icon name="chevronRight" className="h-3.5 w-3.5" />
@@ -139,7 +152,11 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
               <h1 className="text-[26px] font-bold leading-tight tracking-tight sm:text-[30px]">{E.name(sel)}</h1>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-ink-2">
                 <span className="badge badge-blue font-mono">{sel}</span>
-                {isP ? "Provinsi" : `${E.name(sel).startsWith("Kota") ? "Kota" : "Kabupaten"} di Provinsi ${E.name(prov)}`}
+                {isK
+                  ? `Gabungan ${E.PROVS.length} provinsi wilayah timur`
+                  : isP
+                    ? "Provinsi"
+                    : `${E.name(sel).startsWith("Kota") ? "Kota" : "Kabupaten"} di Provinsi ${E.name(prov)}`}
               </p>
             </div>
 
@@ -147,6 +164,7 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
               <label className="flex min-w-[180px] flex-1 flex-col gap-1 sm:flex-none">
                 <span className="subheader">Provinsi</span>
                 <select className="form-select sm:w-[220px]" value={prov} onChange={(e) => choose(e.target.value)}>
+                  {E.has(KAWASAN) && <option value={KAWASAN}>{E.name(KAWASAN)} (seluruh kawasan)</option>}
                   {E.PROVS.map((c) => (
                     <option key={c} value={c}>
                       {E.name(c)}
@@ -156,8 +174,8 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
               </label>
               <label className="flex min-w-[180px] flex-1 flex-col gap-1 sm:flex-none">
                 <span className="subheader">Kabupaten / kota</span>
-                <select className="form-select sm:w-[240px]" value={sel} onChange={(e) => choose(e.target.value)}>
-                  <option value={prov}>Seluruh provinsi</option>
+                <select className="form-select sm:w-[240px]" value={sel} disabled={isK} onChange={(e) => choose(e.target.value)}>
+                  <option value={prov}>{isK ? "— pilih provinsi dulu —" : "Seluruh provinsi"}</option>
                   {E.kabsOf(prov).map((c) => (
                     <option key={c} value={c}>
                       {E.name(c)}
@@ -165,7 +183,7 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
                   ))}
                 </select>
               </label>
-              {onMap(sel) && (
+              {(onMap(sel) || isK) && (
                 <Link href={`/?kode=${sel}`} className="btn">
                   <Icon name="map" className="h-4 w-4 text-primary" />
                   Lihat di peta
@@ -207,6 +225,17 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
       </div>
 
       <div className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-5 sm:px-6">
+        {isK && (
+          <div className="mb-4 flex gap-2.5 rounded-lg border border-border bg-primary-lt px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-2">
+            <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <p>
+              <b className="text-foreground">Angka Indonesia Timur adalah agregat {E.PROVS.length} provinsi.</b> Besaran (rupiah, jiwa, unit, luas) dijumlahkan;
+              PDRB per kapita = total PDRB ÷ total penduduk; laju pertumbuhan ditimbang PDRB; persentase miskin dari total penduduk miskin; persen/indeks
+              lain = rata-rata tertimbang jumlah penduduk. Bila ada provinsi yang datanya kosong, nilai kawasan ditulis <i>Tidak ada data</i> (tidak dijumlah
+              sebagian). Tampilan <b>Peringkat</b> di tiap kartu membandingkan seluruh provinsi.
+            </p>
+          </div>
+        )}
         <Tiles E={E} sel={sel} />
 
         <div className="mt-6 flex gap-6">
@@ -274,6 +303,10 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
                 <li>Indeks Desa diagregasi dari data per desa: jumlah desa per status dan rata-rata skor per dimensi.</li>
                 <li>Sheet IDSD tidak ditampilkan karena identik dengan Indeks Integritas; Rasio Tenaga Kesehatan dan Rasio STR tidak ditampilkan karena satuannya belum jelas.</li>
                 <li>Peringkat dihitung terhadap kab/kota lain di provinsi yang sama, atau terhadap seluruh provinsi untuk tampilan provinsi, pada periode yang sama.</li>
+                <li>
+                  Indonesia Timur = agregat seluruh provinsi: besaran dijumlahkan, rasio/indeks ditimbang jumlah penduduk (dihitung dari PDRB ÷ PDRB per kapita),
+                  pertumbuhan ditimbang PDRB. Sel kosong di spreadsheet ditampilkan sebagai <i>Tidak ada data</i>, bukan 0.
+                </li>
               </ul>
             </footer>
           </main>

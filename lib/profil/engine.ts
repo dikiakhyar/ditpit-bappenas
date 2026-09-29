@@ -6,6 +6,7 @@
 //   meta:    { namaSheet: { n: nama, s: sumber } }
 
 import { isN, lastIdx, type Cell } from "./format";
+import { buildKawasan, KAWASAN, KAWASAN_NAMA } from "./kawasan";
 
 export interface Sheet {
   p: string[];
@@ -38,9 +39,19 @@ export interface RankInfo {
 }
 
 export function createEngine(D: ProfilData) {
-  const R = D.regions;
   const S: Record<string, Sheet> = { ...D.sheets };
   const META: Record<string, { n: string; s: string }> = { ...D.meta };
+  const DESA: ProfilData["desa"] = { ...D.desa };
+
+  // ── agregat "Indonesia Timur" (gabungan seluruh provinsi; lihat kawasan.ts) ──
+  const rawProvs = Object.keys(D.regions).filter((c) => c !== "0" && Number(c) % 100 === 0);
+  const R: ProfilData["regions"] = { ...D.regions };
+  if (rawProvs.length > 1) {
+    const kw = buildKawasan(S, rawProvs, D.desa);
+    for (const [name, rows] of Object.entries(kw.rows)) S[name] = { ...S[name], r: { ...S[name].r, [KAWASAN]: rows } };
+    if (kw.desa) DESA[KAWASAN] = kw.desa;
+    R[KAWASAN] = { n: KAWASAN_NAMA, p: 0 };
+  }
 
   // ── sheet turunan ──
   {
@@ -60,8 +71,8 @@ export function createEngine(D: ProfilData) {
       META["Rasio Fiskal"] = { n: "Dihitung dari Postur APBD", s: "Postur APBD 2025" };
     }
     const ds: Sheet = { p: ["2025"], u: "", r: {} };
-    for (const c in D.desa) {
-      const d = D.desa[c];
+    for (const c in DESA) {
+      const d = DESA[c];
       const o: Record<string, Cell[]> = {};
       if (d.status) {
         const t = d.status.reduce((a, b) => a + b, 0);
@@ -80,10 +91,12 @@ export function createEngine(D: ProfilData) {
   // ── wilayah ──
   const has = (c: string) => !!R[c];
   const name = (c: string) => R[c]?.n ?? c;
-  const isProv = (c: string) => c !== "0" && Number(c) % 100 === 0;
+  /** Kawasan "Indonesia Timur" diperlakukan setingkat provinsi (dibanding nasional). */
+  const isKawasan = (c: string) => c === KAWASAN;
+  const isProv = (c: string) => c === KAWASAN || (c !== "0" && Number(c) % 100 === 0);
   const provOf = (c: string) => (isProv(c) || c === "0" ? c : String(R[c]?.p ?? c.slice(0, 2) + "00"));
   const byName = (a: string, b: string) => R[a].n.localeCompare(R[b].n, "id");
-  const PROVS = Object.keys(R).filter(isProv).sort(byName);
+  const PROVS = Object.keys(R).filter((c) => isProv(c) && !isKawasan(c)).sort(byName);
   const kabsCache = new Map<string, string[]>();
   const kabsOf = (p: string) => {
     let v = kabsCache.get(p);
@@ -95,6 +108,8 @@ export function createEngine(D: ProfilData) {
   };
   const peersOf = (c: string) => (isProv(c) ? PROVS.slice() : kabsOf(provOf(c)));
   const peerWord = (c: string) => (isProv(c) ? `${PROVS.length} provinsi` : "kab/kota di " + name(provOf(c)));
+  /** Kab/kota seluruh kawasan. */
+  const allKabs = () => Object.keys(R).filter((c) => c !== "0" && !isProv(c));
 
   // ── akses data ──
   const sheet = (s: string): Sheet | undefined => S[s];
@@ -133,6 +148,8 @@ export function createEngine(D: ProfilData) {
       const v = valAt(s, c, item, per);
       if (isN(v)) rows.push({ c, v });
     }
+    // kawasan: bukan peringkat, melainkan perbandingan seluruh provinsi (rank = 0)
+    if (isKawasan(code)) return rows.length >= 2 ? { rank: 0, n: rows.length, rows } : null;
     if (!rows.some((r) => r.c === code) || rows.length < 2) return null;
     const sorted = rows.slice().sort((a, z) => (b === "down" ? a.v - z.v : z.v - a.v));
     return { rank: sorted.findIndex((r) => r.c === code) + 1, n: rows.length, rows };
@@ -156,7 +173,7 @@ export function createEngine(D: ProfilData) {
     return { i, per: S[s].p[i], list };
   };
   const meta = (s: string) => META[s] ?? { n: s, s: "" };
-  const desa = (c: string) => D.desa[c];
+  const desa = (c: string) => DESA[c];
   const coverage = {
     provinsi: PROVS.length,
     kabkota: Object.keys(R).filter((c) => c !== "0" && !isProv(c)).length,
@@ -165,7 +182,7 @@ export function createEngine(D: ProfilData) {
 
   return {
     source: D.source,
-    has, name, isProv, provOf, PROVS, kabsOf, peersOf, peerWord,
+    has, name, isProv, isKawasan, provOf, PROVS, kabsOf, allKabs, peersOf, peerWord,
     sheet, ser, pmask, latestOf, valAt, rankInfo, pickCode, composeRows, meta, desa, coverage,
   };
 }

@@ -12,6 +12,7 @@ import { makroLegend } from "@/lib/legend";
 import { Icon } from "@/components/ui/icons";
 import { MAP_BOUNDS } from "@/lib/peta-wilayah";
 import { LAYERS } from "@/lib/layers";
+import { isKawasan } from "@/lib/wilayah";
 
 // Cakupan peta: 16 provinsi wilayah timur (Sulawesi, Nusa Tenggara, Maluku, Papua) —
 // dihitung dari data batas (lib/peta-wilayah.ts). [[W,S],[E,N]]
@@ -227,13 +228,17 @@ export default function MapContainer() {
 
   // filter garis wilayah terpilih: kab/kota → kode persis; provinsi → 2 digit awal
   function selectionFilter(k: string | null, prop = "__kode"): unknown {
-    if (!k) return ["==", ["get", prop], "__none__"];
+    if (!k || isKawasan(k)) return ["==", ["get", prop], "__none__"];
     if (Number(k) % 100 === 0) return ["==", ["slice", ["to-string", ["get", prop]], 0, 2], k.slice(0, 2)];
     return ["==", ["to-string", ["get", prop]], k];
   }
 
   // bingkai peta ke wilayah terpilih (dihitung dari geometri GeoJSON)
   function flyToSelection(map: MlMap, k: string) {
+    if (isKawasan(k)) {
+      map.fitBounds(BOUNDS, { padding: overviewPadding(map.getContainer()), duration: 900 });
+      return;
+    }
     const feats = (latest.current.kabkota?.features ?? []).filter((f) => {
       const kode = String(f.properties?.kode ?? "");
       return Number(k) % 100 === 0 ? kode.slice(0, 2) === k.slice(0, 2) : kode === k;
@@ -279,7 +284,8 @@ export default function MapContainer() {
   // hitung ulang, jadi ringan dipanggil setiap kali pilihan berubah.
   function applyFocus(map: MlMap) {
     const cur = latest.current;
-    const k = cur.selectedKode;
+    // "Indonesia Timur" = seluruh kawasan terpilih → tidak ada yang diredupkan
+    const k = isKawasan(cur.selectedKode) ? null : cur.selectedKode;
     const hide = !!k && cur.focusMode === "sembunyi";
     const setF = (id: string, f: unknown) => {
       if (map.getLayer(id)) map.setFilter(id, (f ?? null) as never);
@@ -327,7 +333,7 @@ export default function MapContainer() {
     const ind = b?.ind ?? findIndicator(latest.current.makroSel.indId)?.ind;
     const nama = String(p.__nama ?? "—");
     const prov = String(p.__prov ?? "");
-    let valLine = "—";
+    let valLine = "Tidak ada data";
     if (b?.numeric) valLine = formatValue(typeof p.__v === "number" ? p.__v : null, ind?.format);
     else if (p.__c) valLine = String(p.__c);
     const rank =

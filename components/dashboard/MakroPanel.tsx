@@ -5,6 +5,8 @@ import { useDashboard } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
 import { colorOf, findIndicator, formatValue, numericScale, paletteSwatch, PALETTE_OPTIONS, resolvePalette, type PaletteChoice } from "@/lib/makro";
 import FocusModeToggle from "./FocusModeToggle";
+import KawasanSummary from "./KawasanSummary";
+import { KAWASAN } from "@/lib/wilayah";
 import DataSource from "@/components/app/DataSource";
 import { ranking } from "@/lib/choropleth";
 
@@ -39,6 +41,8 @@ export default function MakroPanel() {
     setMakroPalette,
     makroReverse,
     setMakroReverse,
+    setSelectedKode,
+    setTab,
   } = useDashboard();
 
   const cat = makroCatalog.find((c) => c.id === makroSel.catId) ?? makroCatalog[0];
@@ -208,6 +212,14 @@ export default function MakroPanel() {
 
       <FocusModeToggle />
 
+      {/* kompilasi seluruh kawasan */}
+      <KawasanSummary
+        onOpen={() => {
+          setSelectedKode(KAWASAN);
+          setTab("wilayah");
+        }}
+      />
+
       {/* peringkat (inovasi: ringkasan terbaik berbasis 'sense') */}
       {ind && (ind.kind ?? "numeric") === "numeric" && (
         <section className="rounded-lg border border-border bg-surface-2 p-3">
@@ -216,7 +228,7 @@ export default function MakroPanel() {
             <span className="text-[10px] text-muted">{senseHigh ? "↑ baik" : "↓ baik"}</span>
           </div>
           {best.length === 0 ? (
-            <p className="text-[11px] text-muted">Belum ada data.</p>
+            <p className="text-[11px] text-muted">Tidak ada data.</p>
           ) : (
             <ol className="flex flex-col gap-1">
               {best.map((r, i) => (

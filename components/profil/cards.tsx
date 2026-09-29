@@ -155,7 +155,8 @@ export function MetricCard({ E, cd, sel }: { E: Engine; cd: MetricDef; sel: stri
   } else if (view === "rank") {
     const rows = rk!.rows.map((r) => ({ c: r.c, name: short(E.name(r.c)), v: r.v, sel: r.c === code })).sort((a, b) => b.v - a.v);
     let refLine: { name: string; v: number } | null = null;
-    if (!cd.lvl && !cd.nocmp) {
+    if (E.isKawasan(code)) refLine = { name: E.name(code), v: L.v };
+    else if (!cd.lvl && !cd.nocmp) {
       if (!isP) {
         const pv = E.valAt(cd.s, prov, cd.i, L.per);
         if (isN(pv)) refLine = { name: "Provinsi", v: pv };
@@ -227,7 +228,12 @@ export function MetricCard({ E, cd, sel }: { E: Engine; cd: MetricDef; sel: stri
       {cd.extra?.(E, code)}
       {legend}
       {body}
-      {rk && (
+      {rk && rk.rank === 0 && (
+        <Cap>
+          Perbandingan <b className="text-foreground">{rk.n} provinsi</b> — buka tampilan <i>Peringkat</i>; garis = nilai {E.name(code)}.
+        </Cap>
+      )}
+      {rk && rk.rank > 0 && (
         <Cap>
           Peringkat <b className="text-foreground">{rk.rank}</b> dari {rk.n} {E.peerWord(code)}{" "}
           <span className="text-muted">({cd.b === "down" ? "1 = terendah" : cd.b === "up" ? "1 = tertinggi" : "1 = terbesar"})</span>
@@ -343,10 +349,16 @@ export function ApbdCard({ E, sel }: { E: Engine; sel: string }) {
   const code = sel;
   const pd = g(code, "Pendapatan Daerah"), pad = g(code, "PAD"), tkd = g(code, "TKD"), bd = g(code, "Belanja Daerah"), bp = g(code, "Belanja Pegawai");
   if (!isN(pd) && !isN(bd)) return null;
-  const mx = Math.max(pd || 0, bd || 0) || 1;
+  const mx = Math.max(isN(pd) ? pd : 0, isN(bd) ? bd : 0) || 1;
   const per = E.sheet("Postur APBD")!.p.slice(-1)[0];
-  const lain = isN(pd) ? Math.max(0, pd - (pad || 0) - (tkd || 0)) : null;
-  const blain = isN(bd) ? Math.max(0, bd - (bp || 0)) : null;
+  // "lain-lain" hanya dihitung bila semua rinciannya ADA — komponen kosong ≠ 0
+  const lain = isN(pd) && isN(pad) && isN(tkd) ? Math.max(0, pd - pad - tkd) : null;
+  const blain = isN(bd) && isN(bp) ? Math.max(0, bd - bp) : null;
+  const gaps = [
+    !isN(pad) && "PAD",
+    !isN(tkd) && "TKD",
+    !isN(bp) && "belanja pegawai",
+  ].filter(Boolean) as string[];
   const peers = E.peersOf(code);
   const med = (k: string) => {
     const vs = peers.map((c) => E.ser("Rasio Fiskal", c, k)?.[0]).filter(isN).sort((a, b) => a - b);
@@ -359,7 +371,11 @@ export function ApbdCard({ E, sel }: { E: Engine; sel: string }) {
     <Card
       wide
       title={`Postur APBD ${per}`}
-      desc="Pendapatan menurut sumbernya dan belanja menurut peruntukannya. Panjang batang sebanding dengan nilai rupiahnya."
+      desc={
+        E.isKawasan(code)
+          ? "Gabungan APBD pemerintah provinsi (tidak termasuk APBD kab/kota). Panjang batang sebanding dengan nilai rupiahnya."
+          : "Pendapatan menurut sumbernya dan belanja menurut peruntukannya. Panjang batang sebanding dengan nilai rupiahnya."
+      }
       src={<Src E={E} sheet="Postur APBD" />}
     >
       <Legend
@@ -398,6 +414,11 @@ export function ApbdCard({ E, sel }: { E: Engine; sel: string }) {
           </div>
         )}
       </div>
+      {gaps.length > 0 && (
+        <Cap>
+          <span className="text-muted">Rincian {gaps.join(", ")}: tidak ada data — bagian batang tanpa warna belum terinci.</span>
+        </Cap>
+      )}
       {isN(surplus) && (
         <Cap>
           {surplus >= 0 ? "Surplus" : "Defisit"} <b className="text-foreground">{fmt(Math.abs(surplus), { rp: true })}</b>{" "}
@@ -548,7 +569,7 @@ export function CommodCard({ E, sel }: { E: Engine; sel: string }) {
                         {ch >= 0 ? "▲" : "▼"} {nf(Math.abs(ch), 1)}%<span className="hidden font-normal opacity-80 sm:inline">vs {r.pper}</span>
                       </span>
                     ) : (
-                      "–"
+                      <span className="text-[11.5px] text-muted">Tidak ada data</span>
                     )}
                   </td>
                 </tr>
@@ -570,7 +591,7 @@ export function WisataCard({ E, sel }: { E: Engine; sel: string }) {
     const i = lastIdx(a, (v) => v != null && v !== "");
     return i >= 0 ? a[i] : null;
   };
-  const show = (v: unknown) => (v == null ? "–" : isN(v) ? nf(v, 0) : String(v).trim());
+  const show = (v: unknown) => (v == null ? "Tidak ada data" : isN(v) ? nf(v, 0) : String(v).trim());
   const groups: [string, [string, string][]][] = [
     ["Akomodasi & kuliner", [["Tempat tidur hotel bintang", "Jumlah Tempat Tidur Hotel Bintang"], ["Tempat tidur hotel non-bintang", "Jumlah Tempat Tidur Hotel Non-Bintang"], ["Rumah makan / restoran", "Jumlah Rumah Makan/Restoran"]]],
     ["Destinasi", [["Daya tarik wisata (DTW)", "Jumlah DTW"], ["Desa wisata penerima ADWI", "Desa wisata potensial (penerima penghargaan ADWI)"], ["KSPN / KEK pariwisata", "KSPN dan/atau KEK Pariwisata"], ["Event pariwisata", "Jumlah event pariwisata yang diselenggarakan (pertahun)"], ["Situs warisan dunia UNESCO", "Jumlah situs budaya warisan dunia (standar UNESCO)"]]],

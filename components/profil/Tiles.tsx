@@ -15,8 +15,8 @@ export function Tiles({ E, sel, compact }: { E: Engine; sel: string; compact?: b
           return (
             <div key={t.l} className="card px-3.5 py-3">
               <div className="text-[12px] font-medium text-muted">{t.l}</div>
-              <div className="mt-1 text-[20px] font-bold text-muted">–</div>
-              <div className="text-[11.5px] text-muted">Belum ada data</div>
+              <div className="mt-1.5 text-[15px] font-semibold text-muted">Tidak ada data</div>
+              <div className="text-[11.5px] text-muted">belum tersedia di database</div>
             </div>
           );
         const L = E.latestOf(t.s, pk.code, t.i)!;
@@ -31,7 +31,7 @@ export function Tiles({ E, sel, compact }: { E: Engine; sel: string; compact?: b
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted">
               <span className="font-mono">{L.per}</span>
               <Delta L={L} f={t.f} b={t.b} g={t.g} compact />
-              {rk && !!t.b && !compact && (
+              {rk && rk.rank > 0 && !!t.b && !compact && (
                 <span>
                   Peringkat {rk.rank}/{rk.n}
                 </span>

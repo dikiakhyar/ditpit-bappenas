@@ -2,6 +2,7 @@
 // [kode BPS, nama, kode provinsi induk ("0" untuk provinsi)]. Jangan diedit manual —
 // perbarui bersama profil.json bila daftar wilayah berubah.
 import { MAP_KAB_CODES, MAP_PROV_CODES } from "./peta-wilayah";
+import { KAWASAN, KAWASAN_NAMA } from "./profil/kawasan";
 
 export type WilayahRow = readonly [kode: string, nama: string, induk: string];
 export const WILAYAH: readonly WilayahRow[] = [
@@ -226,9 +227,12 @@ export const WILAYAH: readonly WilayahRow[] = [
 ];
 
 const BY_CODE = new Map(WILAYAH.map((w) => [w[0], w]));
+/** Kawasan "Indonesia Timur" (gabungan seluruh provinsi) — bukan provinsi, tak punya poligon sendiri. */
+export { KAWASAN, KAWASAN_NAMA };
+export const isKawasan = (c: string | null | undefined) => c === KAWASAN;
 export const isProvCode = (c: string) => c !== "0" && Number(c) % 100 === 0;
-export const provOfCode = (c: string) => (isProvCode(c) ? c : BY_CODE.get(c)?.[2] ?? c.slice(0, 2) + "00");
-export const namaWilayah = (c: string) => BY_CODE.get(c)?.[1] ?? c;
+export const provOfCode = (c: string) => (isKawasan(c) ? "" : isProvCode(c) ? c : BY_CODE.get(c)?.[2] ?? c.slice(0, 2) + "00");
+export const namaWilayah = (c: string) => (isKawasan(c) ? KAWASAN_NAMA : BY_CODE.get(c)?.[1] ?? c);
 export const hasWilayah = (c: string) => BY_CODE.has(c);
 
 /** Provinsi & kab/kota yang punya batas di peta tematik (dibangkitkan dari SHP —
@@ -239,7 +243,8 @@ export const onMap = (c: string) => ON_MAP.has(c);
 
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, " ").replace(/\b(kab|kabupaten)\b/g, "").replace(/\s+/g, " ").trim();
-const INDEX = WILAYAH.map((w) => ({ w, key: norm(w[1]) }));
+const KAWASAN_ROW: WilayahRow = [KAWASAN, KAWASAN_NAMA, "0"];
+const INDEX = [{ w: KAWASAN_ROW, key: norm(KAWASAN_NAMA + " kawasan timur kti seluruh") }, ...WILAYAH.map((w) => ({ w, key: norm(w[1]) }))];
 
 /** Pencarian sederhana: awalan kata lebih diutamakan, lalu substring. */
 export function cariWilayah(q: string, limit = 8): WilayahRow[] {
@@ -251,6 +256,7 @@ export function cariWilayah(q: string, limit = 8): WilayahRow[] {
     if (i < 0 && !w[0].startsWith(q.trim())) continue;
     let s = i === 0 ? 0 : i > 0 && key[i - 1] === " " ? 1 : 2;
     if (isProvCode(w[0])) s -= 0.5;
+    if (isKawasan(w[0])) s -= 1;
     scored.push({ w, s });
   }
   scored.sort((a, b) => a.s - b.s || a.w[1].localeCompare(b.w[1], "id"));
