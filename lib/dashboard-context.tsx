@@ -17,6 +17,7 @@ import { DEFAULT_BASEMAP, type BasemapId } from "@/lib/basemap";
 import { useProfil } from "@/lib/profil/useProfil";
 import type { Engine } from "@/lib/profil/engine";
 import { useTheme, type Theme } from "@/lib/theme";
+import { labelPoints, type LabelPoint } from "@/lib/label-points";
 
 export type Tab = "layer" | "makro" | "wilayah" | "ekspor";
 interface LayerState {
@@ -36,6 +37,16 @@ export interface KabKotaGeo {
 
 /** Tampilan wilayah yang TIDAK dipilih: "abu" = diredupkan abu-abu, "sembunyi" = hilang total (termasuk garis batas). */
 export type FocusMode = "abu" | "sembunyi";
+
+/** Label nama wilayah di peta. */
+export type LabelMode = "off" | "kab" | "prov" | "both";
+export interface LabelSettings {
+  mode: LabelMode;
+  size: number; // px, ukuran nama kab/kota (provinsi otomatis sedikit lebih besar)
+  color: string; // warna huruf (hex)
+  halo: boolean; // garis tepi huruf agar terbaca di atas warna apa pun
+}
+export const DEFAULT_LABELS: LabelSettings = { mode: "off", size: 12, color: "#1f2937", halo: true };
 
 export interface MakroSel {
   catId: string;
@@ -73,6 +84,12 @@ interface DashboardCtx {
   setSelectedKode: (k: string | null) => void;
   focusMode: FocusMode;
   setFocusMode: (m: FocusMode) => void;
+
+  // label nama wilayah
+  labels: LabelSettings;
+  setLabels: (p: Partial<LabelSettings>) => void;
+  /** titik label kab/kota + provinsi (dihitung sekali dari batas wilayah) */
+  labelGeo: { type: "FeatureCollection"; features: LabelPoint[] } | null;
 
   // basemap
   basemapId: BasemapId;
@@ -117,6 +134,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>("layer");
   const [selectedKode, setSelectedKode] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState<FocusMode>("abu");
+  const [labels, setLabelsState] = useState<LabelSettings>(DEFAULT_LABELS);
+  const setLabels = (p: Partial<LabelSettings>) => setLabelsState((s) => ({ ...s, ...p }));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mapInstance, setMapInstance] = useState<MlMap | null>(null);
   const [layerState, setLayerState] = useState<Record<string, LayerState>>(() =>
@@ -161,6 +180,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  const labelGeo = useMemo(
+    () =>
+      geo
+        ? { type: "FeatureCollection" as const, features: [...labelPoints(geo.provinsi.features, "prov"), ...labelPoints(geo.kabkota.features, "kab")] }
+        : null,
+    [geo]
+  );
 
   const { makroData, makroCatalog } = useMemo(() => {
     if (!engine || !kabkota) return { makroData: null, makroCatalog: MAKRO_CATEGORIES };
@@ -241,6 +268,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setSelectedKode,
     focusMode,
     setFocusMode,
+    labels,
+    setLabels,
+    labelGeo,
     basemapId,
     setBasemapId,
     makroOn,

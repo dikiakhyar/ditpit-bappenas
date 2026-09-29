@@ -40,6 +40,13 @@ menurut pilihan "Wilayah lain saat memilih" (tab Makro & Wilayah):
 - **Sembunyikan** — wilayah lain tidak digambar sama sekali: isi, garis, maupun batas Provinsi/Kab-Kota di tab Layer.
 Keduanya hanya mengganti filter/ekspresi gaya MapLibre (tanpa memuat ulang data), jadi tetap ringan.
 
+## Label nama wilayah
+Tab **Layer → Label nama wilayah**: Tidak / Kab/Kota / Provinsi / Keduanya, ukuran huruf (8–24 px; provinsi
+otomatis 1,2×, huruf kapital), warna huruf (6 pilihan cepat + warna bebas), dan garis tepi huruf (warnanya
+otomatis kontras). Titik label dihitung sekali dari poligon `wilayah.topo.json` (`lib/label-points.ts`) di
+bagian daratan terluas tiap wilayah. Huruf memakai berkas glyph lokal `public/fonts/Open Sans Semibold/`
+(tanpa server luar; ikut di ekspor PNG). Label bertabrakan disembunyikan otomatis; label mengikuti mode fokus.
+
 Indikator turunan: jumlah penduduk = PDRB ADHB ÷ PDRB per kapita ADHB (per tahun); persentase & kepadatan
 penduduk dihitung darinya; kelas IRBI memakai ambang BNPB (rendah ≤ 72, sedang 72–144, tinggi > 144).
 

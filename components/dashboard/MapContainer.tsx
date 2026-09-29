@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { Map as MlMap, MapGeoJSONFeature, Popup, GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useDashboard } from "@/lib/dashboard-context";
-import { basemapStyle, fallbackStyle, overviewPadding, BASEMAPS, type BasemapId } from "@/lib/basemap";
+import { basemapStyle, fallbackStyle, overviewPadding, BASEMAPS, LABEL_FONT, type BasemapId } from "@/lib/basemap";
 import { bake, type Baked } from "@/lib/choropleth";
 import { formatValue, findIndicator } from "@/lib/makro";
 import { makroLegend } from "@/lib/legend";
@@ -48,6 +48,8 @@ export default function MapContainer() {
     focusMode,
     makroPalette,
     makroReverse,
+    labels,
+    labelGeo,
     setTab,
     setSidebarOpen,
     setMapInstance,
@@ -55,8 +57,8 @@ export default function MapContainer() {
   const params = useSearchParams();
 
   // refs "nilai terbaru" agar handler peta & re-add style memakai data kini
-  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse });
-  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse };
+  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse, labels, labelGeo });
+  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse, labels, labelGeo };
   const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
@@ -102,7 +104,13 @@ export default function MapContainer() {
             latest.current.theme === "dark" ? "#ffffff" : "#0b2540",
             "rgba(120,135,160,0.55)",
           ],
-          "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 2.2, 0.6],
+          // tipis di skala provinsi, sedikit menebal saat diperbesar; hover tetap jelas
+          "line-width": [
+            "interpolate", ["linear"], ["zoom"],
+            4, ["case", ["boolean", ["feature-state", "hover"], false], 1.3, 0.2],
+            8, ["case", ["boolean", ["feature-state", "hover"], false], 1.7, 0.45],
+            11, ["case", ["boolean", ["feature-state", "hover"], false], 2.1, 0.8],
+          ],
         },
       } as never);
     }
@@ -120,11 +128,74 @@ export default function MapContainer() {
         filter: selectionFilter(latest.current.selectedKode),
         paint: {
           "line-color": latest.current.theme === "dark" ? "#ffffff" : "#0b2540",
-          "line-width": 2.6,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 8, 1.8, 11, 2.4],
         },
       } as never);
     }
+    // label nama wilayah — paling atas. Provinsi ditambahkan terakhir → didahulukan
+    // saat label bertabrakan (label yang tak muat otomatis disembunyikan MapLibre).
+    if (!map.getSource("labels")) map.addSource("labels", { type: "geojson", data: EMPTY_FC as never });
+    for (const lvl of ["kab", "prov"] as const) {
+      const id = `label-${lvl}`;
+      if (map.getLayer(id)) continue;
+      map.addLayer({
+        id,
+        type: "symbol",
+        source: "labels",
+        filter: ["==", ["get", "level"], lvl],
+        layout: {
+          visibility: "none",
+          "text-field": ["get", "nama"],
+          "text-font": LABEL_FONT,
+          "text-size": 12,
+          "text-max-width": lvl === "prov" ? 10 : 7,
+          "text-line-height": 1.1,
+          "text-padding": 3,
+          "text-transform": lvl === "prov" ? "uppercase" : "none",
+          "text-letter-spacing": lvl === "prov" ? 0.08 : 0,
+        },
+        paint: {},
+      } as never);
+    }
     applyChoropleth(map);
+    applyLabels(map);
+  }
+
+  // isi & gaya label nama wilayah (ukuran, warna, garis tepi) — hanya ganti gaya, ringan
+  function applyLabels(map: MlMap) {
+    const cur = latest.current;
+    const src = map.getSource("labels") as GeoJSONSource | undefined;
+    if (!src || !map.getLayer("label-kab")) return;
+    const L = cur.labels;
+    const want = L.mode !== "off" && cur.labelGeo ? "1" : "0";
+    const tagged = src as unknown as { __k?: string };
+    // data titik label baru dikirim ke peta saat label pertama kali dinyalakan
+    if (want === "1" && tagged.__k !== "1") {
+      src.setData(cur.labelGeo as never);
+      tagged.__k = "1";
+    }
+    const halo = haloFor(L.color);
+    for (const lvl of ["kab", "prov"] as const) {
+      const id = `label-${lvl}`;
+      const on = L.mode === "both" || L.mode === lvl;
+      map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+      if (!on) continue;
+      map.setLayoutProperty(id, "text-size", lvl === "prov" ? Math.round(L.size * 1.2) : L.size);
+      map.setPaintProperty(id, "text-color", L.color);
+      map.setPaintProperty(id, "text-halo-color", halo);
+      map.setPaintProperty(id, "text-halo-width", L.halo ? Math.max(1.2, L.size / 9) : 0);
+      map.setPaintProperty(id, "text-halo-blur", 0.4);
+    }
+    applyFocus(map);
+  }
+
+  // garis tepi huruf yang kontras: huruf gelap → tepi putih, huruf terang → tepi gelap
+  function haloFor(hex: string): string {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return "rgba(255,255,255,0.9)";
+    const n = parseInt(m[1], 16);
+    const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    return lum > 0.6 ? "rgba(17,24,39,0.85)" : "rgba(255,255,255,0.92)";
   }
 
   // data & gaya garis batas provinsi / kab-kota (warna menyesuaikan basemap)
@@ -217,6 +288,14 @@ export default function MapContainer() {
     setF("makro-outline", hide ? selectionFilter(k) : null);
     setF("kab-outline", hide ? selectionFilter(k, "kode") : null);
     setF("prov-outline", hide ? selectionFilter(k, "kode") : null);
+    for (const lvl of ["kab", "prov"]) {
+      const id = `label-${lvl}`;
+      if (!map.getLayer(id)) continue;
+      const base = ["==", ["get", "level"], lvl];
+      map.setFilter(id, (hide ? ["all", base, selectionFilter(k, "kode")] : base) as never);
+      // mode abu-abu: label wilayah lain ikut diredupkan
+      map.setPaintProperty(id, "text-opacity", (k && !hide ? ["case", selectionFilter(k, "kode"), 1, 0.4] : 1) as never);
+    }
 
     const b = bakedRef.current;
     if (!b || !map.getLayer("makro-fill")) return;
@@ -351,6 +430,8 @@ export default function MapContainer() {
       map.on("error", (e) => {
         console.error("[MapLibre]", e?.error?.message ?? e);
         if (!map) return;
+        // huruf label gagal dimuat bukan berarti basemap gagal
+        if (/\.pbf|glyph|font/i.test(String(e?.error?.message ?? ""))) return;
         const online = needsNetwork(latest.current.basemapId);
         const styleFailed = !map.isStyleLoaded();
         const tilesBlocked = online && !tileOkRef.current;
@@ -445,6 +526,13 @@ export default function MapContainer() {
     if (map.isStyleLoaded() && map.getSource("kabkota")) applyChoropleth(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [makroSel, makroOn, makroOpacity, kabkota, makroData, makroPalette, makroReverse]);
+
+  // label nama wilayah: dinyalakan / ukuran / warna berubah
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded() && map.getLayer("label-kab")) applyLabels(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labels, labelGeo]);
 
   // batas administrasi: data dimuat / layer dinyalakan-dimatikan
   useEffect(() => {

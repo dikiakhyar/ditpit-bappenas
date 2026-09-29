@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboard } from "@/lib/dashboard-context";
+import { useDashboard, type LabelMode } from "@/lib/dashboard-context";
 import { Swatch } from "@/components/ui/Swatch";
 import { Icon } from "@/components/ui/icons";
 import { MAP_BOUNDS } from "@/lib/peta-wilayah";
@@ -66,6 +66,100 @@ function LayerRow({ l }: { l: LayerDef }) {
   );
 }
 
+const LABEL_MODES: { id: LabelMode; label: string }[] = [
+  { id: "off", label: "Tidak" },
+  { id: "kab", label: "Kab/Kota" },
+  { id: "prov", label: "Provinsi" },
+  { id: "both", label: "Keduanya" },
+];
+const LABEL_COLORS = ["#1f2937", "#ffffff", "#0b2540", "#b21621", "#047437", "#6d44b2"];
+
+/** Label nama wilayah dari batas GeoJSON: tampil/tidak, ukuran & warna huruf. */
+function LabelSection() {
+  const { labels, setLabels } = useDashboard();
+  const on = labels.mode !== "off";
+  return (
+    <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
+      <div className="flex items-center gap-2">
+        <Icon name="mappin" className="h-4 w-4 text-primary" />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Label nama wilayah</h3>
+      </div>
+      <div role="radiogroup" className="grid grid-cols-4 gap-0.5 rounded-lg border border-border bg-surface-2 p-0.5">
+        {LABEL_MODES.map((m) => (
+          <button
+            key={m.id}
+            role="radio"
+            aria-checked={labels.mode === m.id}
+            onClick={() => setLabels({ mode: m.id })}
+            className={`rounded-md px-1 py-1.5 text-[11px] font-medium transition-colors ${
+              labels.mode === m.id ? "bg-primary text-primary-fg shadow-sm" : "text-muted hover:text-foreground"
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {on && (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="w-14 shrink-0 text-[11px] text-muted">Ukuran</span>
+            <input
+              type="range"
+              min={8}
+              max={24}
+              value={labels.size}
+              onChange={(e) => setLabels({ size: Number(e.target.value) })}
+              className="dash-range h-1 flex-1"
+              aria-label="Ukuran huruf label"
+            />
+            <span className="w-9 text-right font-mono text-[11px] text-muted">{labels.size}px</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-14 shrink-0 text-[11px] text-muted">Warna</span>
+            <div className="flex flex-1 flex-wrap items-center gap-1.5">
+              {LABEL_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setLabels({ color: c })}
+                  aria-label={`Warna ${c}`}
+                  className={`h-5 w-5 rounded-full border ${
+                    labels.color.toLowerCase() === c ? "ring-2 ring-primary ring-offset-1 ring-offset-surface" : "border-border"
+                  }`}
+                  style={{ background: c }}
+                />
+              ))}
+              <label
+                title="Warna lain"
+                className="relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border text-[10px] text-muted"
+                style={{ background: LABEL_COLORS.includes(labels.color.toLowerCase()) ? undefined : labels.color }}
+              >
+                {LABEL_COLORS.includes(labels.color.toLowerCase()) && "+"}
+                <input
+                  type="color"
+                  value={labels.color}
+                  onChange={(e) => setLabels({ color: e.target.value })}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  aria-label="Pilih warna huruf lain"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-muted">Garis tepi huruf (agar terbaca di atas warna peta)</span>
+            <Switch checked={labels.halo} onChange={() => setLabels({ halo: !labels.halo })} />
+          </div>
+          <p className="text-[11px] leading-snug text-muted">
+            Nama yang saling bertumpuk otomatis disembunyikan; perbesar peta untuk melihat lebih banyak.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function GroupCount({ on, total }: { on: number; total: number }) {
   return (
     <span className="rounded-full bg-surface-2 px-1.5 text-[10px] font-medium text-muted">
@@ -105,6 +199,8 @@ export default function LayerPanel() {
           ))}
         </select>
       </label>
+
+      <LabelSection />
 
       {GROUPS.map((group) => {
         const layers = LAYERS.filter((l) => l.group === group.id);

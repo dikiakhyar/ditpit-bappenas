@@ -70,8 +70,8 @@ export const GEOMETRY_META: Record<Geometry, { label: string }> = {
 export const LAYERS: LayerDef[] = [
   // ── Batas Administrasi (batas wilayah, digambar sebagai garis) ──────────
   // sumber: public/data/wilayah.topo.json (dari SHP KabKotaPIT, lihat scripts/build-map-data.mjs)
-  { id: "prov",    name: "Provinsi",          group: "admin", geometry: "area", outline: true, color: "#334155", weight: 2.6, defaultVisible: true, defaultOpacity: 1, source: "/data/wilayah.topo.json" },
-  { id: "kabkota", name: "Kabupaten / Kota",  group: "admin", geometry: "area", outline: true, color: "#64748b", weight: 1.7, dash: "solid",  defaultOpacity: 1, source: "/data/wilayah.topo.json" },
+  { id: "prov",    name: "Provinsi",          group: "admin", geometry: "area", outline: true, color: "#334155", weight: 1.3, defaultVisible: true, defaultOpacity: 1, source: "/data/wilayah.topo.json" },
+  { id: "kabkota", name: "Kabupaten / Kota",  group: "admin", geometry: "area", outline: true, color: "#64748b", weight: 0.8, dash: "solid",  defaultOpacity: 1, source: "/data/wilayah.topo.json" },
   { id: "kec",     name: "Kecamatan",         group: "admin", geometry: "area", outline: true, color: "#94a3b8", weight: 1.1, dash: "dashed", defaultOpacity: 1 },
 
   // ── Tematik · Penggunaan Lahan (area) ───────────────────────────────────

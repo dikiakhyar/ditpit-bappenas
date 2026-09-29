@@ -28,30 +28,45 @@ export interface DataSourceInfo {
 }
 export type Database = ProfilData & { source: DataSourceInfo };
 
-// Berkas .xlsx di Drive & Google Sheets asli punya jalur unduh berbeda — coba berurutan.
-const downloadUrls = (id: string) => [
+// Batas tunggu (ms). Google Sheets asli harus MERAKIT .xlsx dulu setiap diminta —
+// untuk spreadsheet besar (mis. sheet Indeks Desa) bisa > 25 detik, jadi jalur
+// export diberi waktu panjang. Fungsi server dibatasi maxDuration = 60 detik
+// (app/api/database/route.ts), sisakan ±10 detik untuk mengolah hasilnya.
+// Bisa diubah lewat env DATABASE_TIMEOUT_MS.
+const EXPORT_TIMEOUT_MS = Number(process.env.DATABASE_TIMEOUT_MS) || 48_000;
+// Jalur unduh berkas .xlsx di Drive: berkas sudah jadi → cepat, atau langsung gagal
+// (500) bila ID-nya Google Sheets asli. Tak perlu menunggu lama.
+const FILE_TIMEOUT_MS = 10_000;
+
+// Google Sheets asli & berkas .xlsx di Drive punya jalur unduh berbeda — coba berurutan.
+const downloadUrls = (id: string): { url: string; timeout: number }[] => [
   // opsional: URL .xlsx langsung (mis. bila database dipindah dari Google Drive)
-  ...(process.env.DATABASE_XLSX_URL ? [process.env.DATABASE_XLSX_URL] : []),
-  `https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`,
-  `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
-  `https://drive.google.com/uc?export=download&id=${id}`,
+  ...(process.env.DATABASE_XLSX_URL ? [{ url: process.env.DATABASE_XLSX_URL, timeout: EXPORT_TIMEOUT_MS }] : []),
+  { url: `https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`, timeout: EXPORT_TIMEOUT_MS },
+  { url: `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`, timeout: FILE_TIMEOUT_MS },
+  { url: `https://drive.google.com/uc?export=download&id=${id}`, timeout: FILE_TIMEOUT_MS },
 ];
 
 async function downloadWorkbook(): Promise<Uint8Array> {
   const errors: string[] = [];
-  for (const url of downloadUrls(SHEET_ID)) {
+  for (const { url, timeout } of downloadUrls(SHEET_ID)) {
+    const t0 = Date.now();
     try {
-      const res = await fetch(url, { cache: "no-store", redirect: "follow", signal: AbortSignal.timeout(25_000) });
+      const res = await fetch(url, { cache: "no-store", redirect: "follow", signal: AbortSignal.timeout(timeout) });
       if (!res.ok) {
         errors.push(`${res.status} ${new URL(url).host}`);
         continue;
       }
       const buf = new Uint8Array(await res.arrayBuffer());
       // .xlsx = arsip zip → diawali "PK"; halaman login/peringatan Google berupa HTML
-      if (buf[0] === 0x50 && buf[1] === 0x4b) return buf;
+      if (buf[0] === 0x50 && buf[1] === 0x4b) {
+        console.log(`[database] spreadsheet terunduh dari ${new URL(url).host} dalam ${((Date.now() - t0) / 1000).toFixed(1)} dtk (${(buf.length / 1e6).toFixed(1)} MB)`);
+        return buf;
+      }
       errors.push(`bukan .xlsx dari ${new URL(url).host} (periksa izin berbagi)`);
     } catch (e) {
-      errors.push(`${new URL(url).host}: ${(e as Error).message}`);
+      const msg = (e as Error).name === "TimeoutError" ? `tidak selesai dalam ${Math.round(timeout / 1000)} dtk` : (e as Error).message;
+      errors.push(`${new URL(url).host}: ${msg}`);
     }
   }
   throw new Error(errors.join("; "));

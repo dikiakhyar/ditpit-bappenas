@@ -82,8 +82,20 @@ function localLandStyle(theme: "light" | "dark"): StyleSpecification {
   };
 }
 
+// Huruf untuk label nama wilayah — disimpan sendiri di public/fonts (±80 KB, hanya
+// diunduh saat label dinyalakan), jadi label tetap tampil offline & ikut di ekspor PNG.
+export const LABEL_FONT = ["Open Sans Semibold"];
+function withGlyphs(style: StyleSpecification): StyleSpecification {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return { ...style, glyphs: `${origin}/fonts/{fontstack}/{range}.pbf` };
+}
+
 /** Style untuk basemap terpilih. */
 export function basemapStyle(id: BasemapId, theme: "light" | "dark"): StyleSpecification {
+  return withGlyphs(baseStyle(id, theme));
+}
+
+function baseStyle(id: BasemapId, theme: "light" | "dark"): StyleSpecification {
   switch (id) {
     case "peta":
       return rasterStyle([{ id: "base", tiles: positron, maxzoom: 20 }], OSM_CARTO, "#f2f2f0");
@@ -107,7 +119,7 @@ export function basemapStyle(id: BasemapId, theme: "light" | "dark"): StyleSpeci
 
 /** Cadangan bila basemap online gagal: batas wilayah lokal (tetap tampil offline). */
 export function fallbackStyle(theme: "light" | "dark"): StyleSpecification {
-  return localLandStyle(theme);
+  return withGlyphs(localLandStyle(theme));
 }
 
 /** Padding saat menampilkan seluruh wilayah: di layar lebar, sisi kanan dikosongkan

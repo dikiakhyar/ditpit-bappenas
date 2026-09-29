@@ -19,6 +19,16 @@ Google Spreadsheet  ──(unduh .xlsx, maks. sekali/5 menit)──▶  /api/dat
 - Label hijau **"Database: Google Spreadsheet · dibaca …"** = data langsung dari spreadsheet.
   Label kuning **"salinan lokal"** = spreadsheet sedang tak terbaca (izin berbagi / jaringan).
 
+## Bila muncul "salinan lokal" karena timeout
+Spreadsheet ini **Google Sheets asli**: setiap dibaca, Google harus merakit .xlsx dari seluruh sheet dulu.
+Makin besar spreadsheet (terutama sheet **Indeks Desa**, sheet-sheet yang diabaikan, dan rumus berat seperti
+IMPORTRANGE/pivot), makin lama. Situs menunggu ±48 detik. Bila masih sering gagal:
+1. Rampingkan spreadsheet — hapus/pindahkan sheet yang tidak dipakai (daftar "Diabaikan" di bawah) dan ganti
+   rumus berat dengan nilai (Salin → Tempel khusus → Nilai saja).
+2. Tahap berikutnya: baca lewat Google Sheets API (butuh API key) — lebih cepat dari unduh .xlsx.
+Error `500 drive.usercontent…` / `500 drive.google.com` wajar untuk Google Sheets asli (jalur itu khusus berkas .xlsx di Drive).
+Log server mencatat lama unduhan: `[database] spreadsheet terunduh … dalam N dtk`.
+
 ## Kecepatan
 - Server menyimpan hasil baca spreadsheet di memori (±5 menit) dan mengirim data **terkompresi gzip** (±0,7 MB).
 - Saat server baru "bangun" (cold start), situs **langsung** tampil memakai salinan lokal, sementara spreadsheet
@@ -45,6 +55,7 @@ Setiap sheet data memakai kolom: `region_code | province | regency | item | unit
 |---|---|
 | `DATABASE_SHEET_ID` | Ganti ke spreadsheet lain (ID dari URL). Default: spreadsheet Database PIT saat ini. |
 | `DATABASE_XLSX_URL` | Pakai URL `.xlsx` langsung (bila database dipindah dari Google Drive). |
+| `DATABASE_TIMEOUT_MS` | Batas tunggu Google merakit .xlsx (default 48000 ms; fungsi server maks. 60 dtk). |
 | `DATABASE_REFRESH_TOKEN` | Bila diisi, tombol "Perbarui sekarang" wajib token (`/api/database/refresh?token=…`). |
 
 ## Memperbarui salinan lokal (cadangan)
