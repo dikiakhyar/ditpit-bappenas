@@ -195,13 +195,36 @@ export default function MapContainer() {
       return;
     }
     src.setData(b.geo as never);
-    map.setPaintProperty("makro-fill", "fill-color", b.colorExpr as never);
+    applyFocus(map);
+  }
+
+  // ── fokus wilayah terpilih: yang lain jadi abu-abu ──
+  // Hanya mengganti ekspresi gaya (dievaluasi di GPU) — tanpa setData / hitung ulang,
+  // jadi ringan dipanggil setiap kali pilihan berubah.
+  function applyFocus(map: MlMap) {
+    const cur = latest.current;
+    const b = bakedRef.current;
+    if (!b || !map.getLayer("makro-fill")) return;
+    const k = cur.selectedKode;
+    const op = cur.makroOpacity;
+    const hover = ["boolean", ["feature-state", "hover"], false];
+    const dark = cur.theme === "dark";
+    if (!k) {
+      map.setPaintProperty("makro-fill", "fill-color", b.colorExpr as never);
+      map.setPaintProperty("makro-fill", "fill-opacity", ["case", hover, Math.min(op + 0.12, 1), op] as never);
+      if (map.getLayer("makro-outline")) map.setPaintProperty("makro-outline", "line-opacity", 1);
+      return;
+    }
+    const inSel = selectionFilter(k);
+    map.setPaintProperty("makro-fill", "fill-color", ["case", inSel, b.colorExpr, dark ? "#3a4250" : "#c3c9d2"] as never);
     map.setPaintProperty("makro-fill", "fill-opacity", [
       "case",
-      ["boolean", ["feature-state", "hover"], false],
-      Math.min(cur.makroOpacity + 0.12, 1),
-      cur.makroOpacity,
+      inSel,
+      ["case", hover, Math.min(op + 0.12, 1), op],
+      ["case", hover, 0.7, 0.55],
     ] as never);
+    if (map.getLayer("makro-outline"))
+      map.setPaintProperty("makro-outline", "line-opacity", ["case", inSel, 1, hover, 1, 0.35] as never);
   }
 
   // ── tooltip hover ──
@@ -432,6 +455,7 @@ export default function MapContainer() {
     if (!map) return;
     const apply = () => {
       if (map.getLayer("makro-selected")) map.setFilter("makro-selected", selectionFilter(selectedKode) as never);
+      applyFocus(map);
       if (selectedKode && !fromClickRef.current) flyToSelection(map, selectedKode);
       fromClickRef.current = false;
     };
