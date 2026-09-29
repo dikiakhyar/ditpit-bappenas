@@ -9,8 +9,8 @@ import ExportPanel from "./ExportPanel";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "layer", label: "Layer", icon: "layers" },
-  { id: "makro", label: "Makro", icon: "grid" },
   { id: "wilayah", label: "Wilayah", icon: "report" },
+  { id: "makro", label: "Makro", icon: "grid" },
   { id: "ekspor", label: "Ekspor", icon: "download" },
 ];
 

@@ -12,7 +12,7 @@ import { join } from "node:path";
 import type { ProfilData } from "@/lib/profil/engine";
 import { buildDataset, type BuildStats } from "./build";
 
-export const SHEET_ID = process.env.DATABASE_SHEET_ID || "1oXL42DsvDlQ1cuD4kU8RCXoH16CWnAC3";
+export const SHEET_ID = process.env.DATABASE_SHEET_ID || "1Zq54xcuR-Ma9vGY6mQAdSbDwjUaPPDCezSMmeb6tIP4";
 export const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
 /** Umur cache (detik) sebelum spreadsheet dibaca ulang. */
 export const REFRESH_SECONDS = 300;
@@ -32,8 +32,8 @@ export type Database = ProfilData & { source: DataSourceInfo };
 const downloadUrls = (id: string) => [
   // opsional: URL .xlsx langsung (mis. bila database dipindah dari Google Drive)
   ...(process.env.DATABASE_XLSX_URL ? [process.env.DATABASE_XLSX_URL] : []),
-  `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
   `https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`,
+  `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
   `https://drive.google.com/uc?export=download&id=${id}`,
 ];
 
