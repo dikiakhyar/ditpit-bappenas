@@ -18,10 +18,11 @@ export function makroLegend(b: Baked, year: number | null, totalFeatures: number
   if (ind.unit) parts.push(ind.unit);
   if (numeric) parts.push(`kelas kuantil · ${count} kab/kota`);
   const classes: LegendClass[] = numeric
-    ? legendClasses(scale, min, max).map((k) => ({
-        color: k.color,
-        label: k.from === k.to ? formatValue(k.from, ind.format) : `${formatValue(k.from, ind.format)} – ${formatValue(k.to, ind.format)}`,
-      }))
+    ? legendClasses(scale, min, max).map((k, i) => {
+        const range = k.from === k.to ? formatValue(k.from, ind.format) : `${formatValue(k.from, ind.format)} – ${formatValue(k.to, ind.format)}`;
+        const name = scale.labels?.[i];
+        return { color: k.color, label: name ? `${name} (${range})` : range };
+      })
     : (ind.classes ?? []).filter((c) => b.present?.has(c.value) ?? true).map((c) => ({ color: c.color, label: c.value }));
   if (count < totalFeatures) classes.push({ color: NODATA_SOLID, label: "Tidak ada data" });
   return { title, sub: parts.join(" · "), classes };

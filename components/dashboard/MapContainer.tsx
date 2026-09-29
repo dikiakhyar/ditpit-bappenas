@@ -47,8 +47,7 @@ export default function MapContainer() {
     selectedKode,
     setSelectedKode,
     focusMode,
-    makroPalette,
-    makroReverse,
+    symb,
     labels,
     labelGeo,
     setTab,
@@ -58,8 +57,8 @@ export default function MapContainer() {
   const params = useSearchParams();
 
   // refs "nilai terbaru" agar handler peta & re-add style memakai data kini
-  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse, labels, labelGeo });
-  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse, labels, labelGeo };
+  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo });
+  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo };
   const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
@@ -263,7 +262,7 @@ export default function MapContainer() {
     const cur = latest.current;
     const src = map.getSource("kabkota") as GeoJSONSource | undefined;
     if (!src) return;
-    const b = bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, { palette: cur.makroPalette, reverse: cur.makroReverse });
+    const b = bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, cur.symb);
     bakedRef.current = b;
     setLegend(b);
     const vis = cur.makroOn && !!b ? "visible" : "none";
@@ -274,7 +273,25 @@ export default function MapContainer() {
       return;
     }
     src.setData(b.geo as never);
+    applyBorder(map);
     applyFocus(map);
+  }
+
+  // garis batas poligon kab/kota: warna & tebal pilihan pengguna (tebal 0 = tanpa garis).
+  // Garis sorot saat kursor di atas wilayah tetap tampil.
+  function applyBorder(map: MlMap) {
+    if (!map.getLayer("makro-outline")) return;
+    const { width: w, color } = latest.current.symb.border;
+    const hover = ["boolean", ["feature-state", "hover"], false];
+    map.setPaintProperty("makro-outline", "line-color", [
+      "case", hover, latest.current.theme === "dark" ? "#ffffff" : "#0b2540", color,
+    ] as never);
+    map.setPaintProperty("makro-outline", "line-width", [
+      "interpolate", ["linear"], ["zoom"],
+      4, ["case", hover, 1.3, w * 0.45],
+      8, ["case", hover, 1.7, w],
+      11, ["case", hover, 2.1, w * 1.7],
+    ] as never);
   }
 
   // ── fokus wilayah terpilih ──
@@ -531,7 +548,7 @@ export default function MapContainer() {
     if (!map) return;
     if (map.isStyleLoaded() && map.getSource("kabkota")) applyChoropleth(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [makroSel, makroOn, makroOpacity, kabkota, makroData, makroPalette, makroReverse]);
+  }, [makroSel, makroOn, makroOpacity, kabkota, makroData, symb]);
 
   // label nama wilayah: dinyalakan / ukuran / warna berubah
   useEffect(() => {

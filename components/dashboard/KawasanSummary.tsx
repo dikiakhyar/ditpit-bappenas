@@ -36,9 +36,7 @@ export default function KawasanSummary({ onOpen }: { onOpen?: () => void }) {
         <p className="text-[10.5px] leading-snug text-muted">Gabungan APBD pemerintah provinsi.</p>
       )}
       {noData && (
-        <p className="text-[10.5px] leading-snug text-muted">
-          Data provinsi belum lengkap (atau indikator ini tak bermakna untuk kawasan), jadi tidak dijumlah sebagian.
-        </p>
+        <p className="text-[10.5px] text-muted" title="Nilai kawasan hanya dihitung bila data seluruh provinsi lengkap">Data provinsi belum lengkap.</p>
       )}
 
       {numeric && s.min && s.max && (

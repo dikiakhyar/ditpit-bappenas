@@ -12,7 +12,8 @@ import { LAYERS, type GroupId } from "@/lib/layers";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Map as MlMap } from "maplibre-gl";
-import { MAKRO_CATEGORIES, buildMakro, findIndicator, type MakroCategory, type MakroData, type PaletteChoice } from "@/lib/makro";
+import { MAKRO_CATEGORIES, buildMakro, findIndicator, type MakroCategory, type MakroData } from "@/lib/makro";
+import { DEFAULT_SYMB, type Symbology } from "@/lib/classify";
 import { DEFAULT_BASEMAP, type BasemapId } from "@/lib/basemap";
 import { useProfil } from "@/lib/profil/useProfil";
 import type { Engine } from "@/lib/profil/engine";
@@ -46,6 +47,7 @@ export interface LabelSettings {
   color: string; // warna huruf (hex)
   halo: boolean; // garis tepi huruf agar terbaca di atas warna apa pun
 }
+const PREFS_KEY = "ditpit-peta-prefs-v1";
 export const DEFAULT_LABELS: LabelSettings = { mode: "off", size: 12, color: "#1f2937", halo: true };
 
 export interface MakroSel {
@@ -110,12 +112,9 @@ interface DashboardCtx {
   setMakroCategory: (catId: string) => void;
   setMakroIndicator: (indId: string) => void;
   setMakroYear: (year: number) => void;
-  /** palet warna pilihan pengguna ("auto" = sesuai konteks indikator) */
-  makroPalette: PaletteChoice;
-  setMakroPalette: (p: PaletteChoice) => void;
-  /** balik urutan warna (terang ↔ pekat) */
-  makroReverse: boolean;
-  setMakroReverse: (v: boolean) => void;
+  /** simbolisasi choropleth: palet, metode & jumlah kelas, warna/nama kelas kustom, garis batas */
+  symb: Symbology;
+  setSymb: (p: Partial<Symbology>) => void;
 
   // data
   kabkota: KabKotaGeo | null;
@@ -155,8 +154,33 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // ── Data Makro ──
   const [makroOn, setMakroOn] = useState(true);
   const [makroOpacity, setMakroOpacity] = useState(0.82);
-  const [makroPalette, setMakroPalette] = useState<PaletteChoice>("auto");
-  const [makroReverse, setMakroReverse] = useState(false);
+  const [symb, setSymbState] = useState<Symbology>(DEFAULT_SYMB);
+  const setSymb = (p: Partial<Symbology>) => setSymbState((s) => ({ ...s, ...p }));
+
+  // ── pengaturan tampilan diingat di browser ini (simbolisasi, label, mode fokus) ──
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  // Sengaja dibaca SETELAH render pertama (bukan di useState) agar HTML server & browser
+  // sama (tanpa hydration mismatch); sekali saja saat halaman dibuka.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as Partial<{ symb: Partial<Symbology>; labels: Partial<LabelSettings>; focusMode: FocusMode }>;
+        if (p.symb) setSymbState((s) => ({ ...s, ...p.symb, border: { ...s.border, ...(p.symb?.border ?? {}) } }));
+        if (p.labels) setLabelsState((s) => ({ ...s, ...p.labels }));
+        if (p.focusMode === "abu" || p.focusMode === "sembunyi") setFocusMode(p.focusMode);
+      }
+    } catch {}
+    setPrefsLoaded(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ symb, labels, focusMode }));
+    } catch {}
+  }, [prefsLoaded, symb, labels, focusMode]);
   const [rawSel, setMakroSel] = useState<MakroSel>({ catId: MAKRO_CATEGORIES[0].id, indId: MAKRO_CATEGORIES[0].indicators[0].id, year: null });
 
   // ── data: batas wilayah (TopoJSON statis, ±0,6 MB) + database (Google Spreadsheet) ──
@@ -282,10 +306,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setMakroCategory,
     setMakroIndicator,
     setMakroYear,
-    makroPalette,
-    setMakroPalette,
-    makroReverse,
-    setMakroReverse,
+    symb,
+    setSymb,
     kabkota,
     provinsi,
     makroData,

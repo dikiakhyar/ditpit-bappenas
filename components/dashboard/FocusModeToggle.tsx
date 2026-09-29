@@ -3,13 +3,13 @@
 import { useDashboard, type FocusMode } from "@/lib/dashboard-context";
 
 const OPTIONS: { id: FocusMode; label: string; hint: string }[] = [
-  { id: "abu", label: "Abu-abu", hint: "Wilayah lain tetap tampil, diredupkan abu-abu" },
-  { id: "sembunyi", label: "Sembunyikan", hint: "Hanya wilayah terpilih yang tampil — tanpa isi & garis batas wilayah lain" },
+  { id: "abu", label: "Abu-abu", hint: "Wilayah lain diredupkan abu-abu" },
+  { id: "sembunyi", label: "Sembunyikan", hint: "Hanya wilayah terpilih yang tampil" },
 ];
 
 /** Pilihan tampilan wilayah yang TIDAK dipilih saat ada wilayah terpilih. */
 export default function FocusModeToggle() {
-  const { focusMode, setFocusMode, selectedKode } = useDashboard();
+  const { focusMode, setFocusMode } = useDashboard();
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Wilayah lain saat memilih</span>
@@ -29,11 +29,6 @@ export default function FocusModeToggle() {
           </button>
         ))}
       </div>
-      <span className="text-[11px] leading-snug text-muted">
-        {selectedKode
-          ? OPTIONS.find((o) => o.id === focusMode)?.hint
-          : "Berlaku setelah wilayah dipilih (klik peta atau pilih di tab Wilayah)."}
-      </span>
     </div>
   );
 }

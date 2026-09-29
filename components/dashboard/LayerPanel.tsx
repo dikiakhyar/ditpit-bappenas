@@ -10,10 +10,7 @@ import {
   LAYERS,
   GROUPS,
   SUBGROUPS,
-  GEOMETRY_META,
   type LayerDef,
-  type GroupId,
-  type Geometry,
 } from "@/lib/layers";
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -148,12 +145,9 @@ function LabelSection() {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted">Garis tepi huruf (agar terbaca di atas warna peta)</span>
+            <span className="text-[11px] text-muted" title="Agar nama tetap terbaca di atas warna peta">Garis tepi huruf</span>
             <Switch checked={labels.halo} onChange={() => setLabels({ halo: !labels.halo })} />
           </div>
-          <p className="text-[11px] leading-snug text-muted">
-            Nama yang saling bertumpuk otomatis disembunyikan; perbesar peta untuk melihat lebih banyak.
-          </p>
         </>
       )}
     </section>
@@ -269,23 +263,6 @@ export default function LayerPanel() {
         );
       })}
 
-      {/* key bentuk geometri */}
-      <section className="rounded-lg bg-surface-2 p-3">
-        <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
-          Bentuk geometri
-        </h4>
-        <ul className="flex flex-col gap-1.5 text-xs">
-          {(Object.keys(GEOMETRY_META) as Geometry[]).map((g) => {
-            const sample = LAYERS.find((l) => l.geometry === g && !l.outline)!;
-            return (
-              <li key={g} className="flex items-center gap-2">
-                <Swatch layer={sample} />
-                <span>{GEOMETRY_META[g].label}</span>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
     </div>
   );
 }

@@ -28,10 +28,20 @@ Aturan: `palette` pada indikator → bila tidak ada dan `sense: "low"` → merah
 Semua palet lolos uji keterbacaan (kecerahan naik rata, beda antarkelas terlihat, kelas paling terang tetap
 kontras terhadap latar putih). Daftar warna: `PALETTES` di `lib/makro.ts`.
 
-**Palet pilihan pengguna** (panel Makro → "Palet warna"): *Otomatis* memakai aturan di atas; memilih palet lain
-(biru, hijau, merah, oranye, ungu, toska, merah–hijau divergen) berlaku untuk semua indikator numerik sampai
-dikembalikan ke Otomatis. "Balik warna" menukar urutan terang ↔ pekat. Legenda, peringkat, dan ekspor PNG ikut
-berubah. Indikator kategorikal (mis. kelas IRBI) tetap memakai warna kelas bakunya.
+## Simbolisasi (tab Makro → "Simbolisasi")
+Semua pengaturan diingat di browser pengguna (localStorage) dan ikut ke legenda, daftar peringkat, dan ekspor PNG
+(`lib/classify.ts`, `lib/brewer.ts`, `components/dashboard/SymbologyEditor.tsx`).
+- **Palet**: Otomatis (aturan di atas) · 7 palet bawaan · 16 palet **ColorBrewer** (nilai resmi, 3–6 kelas) ·
+  **Kustom** — warna tiap kelas diketik sebagai RGB (`49, 163, 84` / `RGB (49; 163; 84)`) atau hex, atau dipilih.
+  Mengubah warna satu kelas otomatis beralih ke Kustom berisi warna yang sedang tampil.
+- **Pembagian kelas**: Kuantil (bawaan) · Natural breaks (Jenks, sama dengan ArcGIS/QGIS) · Interval sama ·
+  Batas manual (disimpan per indikator). **Jumlah kelas** 3–6. **Balik warna**.
+- **Nama kelas** opsional (mis. Rendah/Sedang/Tinggi) → legenda menulis "Tinggi (73,1 – 86,4)".
+- **Garis batas kab/kota**: tebal 0–3 px (0 = tanpa garis) dan warnanya (RGB/hex). Garis sorot saat kursor tetap tampil.
+- Indikator kategorikal (mis. kelas IRBI) tetap memakai warna kelas bakunya.
+
+Contoh permintaan "tinggi RGB(49,163,84), sedang RGB(161,217,155), rendah RGB(229,245,224), batas RGB(200,200,200)":
+palet **ColorBrewer Greens**, **3 kelas**, klik "Isi nama Rendah…Tinggi", garis batas warna `200, 200, 200`.
 
 ## Fokus wilayah terpilih
 Saat kab/kota atau provinsi dipilih (klik peta, tab Wilayah, atau "Fokus" di tab Layer), wilayah lain ditampilkan

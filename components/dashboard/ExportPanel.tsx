@@ -20,13 +20,13 @@ const slug = (s: string) =>
 
 /** Ekspor = peta persis seperti di layar + legenda (simbol & keterangan). Tanpa judul/tata letak. */
 export default function ExportPanel() {
-  const { layerState, makroOn, makroSel, kabkota, makroData, selectedKode, basemapId, mapInstance, makroPalette, makroReverse } = useDashboard();
+  const { layerState, makroOn, makroSel, kabkota, makroData, selectedKode, basemapId, mapInstance, symb } = useDashboard();
   const previewRef = useRef<HTMLCanvasElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const model: LegendModel = useMemo(() => {
-    const b = makroOn ? bake(kabkota, makroData, makroSel.indId, makroSel.year, { palette: makroPalette, reverse: makroReverse }) : null;
+    const b = makroOn ? bake(kabkota, makroData, makroSel.indId, makroSel.year, symb) : null;
     const total = kabkota?.features.length ?? 0;
     return {
       makro: b ? makroLegend(b, makroSel.year, total) : undefined,
@@ -35,7 +35,7 @@ export default function ExportPanel() {
       selected: selectedKode ? namaWilayah(selectedKode) : undefined,
       attribution: BASEMAPS.find((x) => x.id === basemapId)?.attribution || undefined,
     };
-  }, [makroOn, kabkota, makroData, makroSel, layerState, selectedKode, basemapId, makroPalette, makroReverse]);
+  }, [makroOn, kabkota, makroData, makroSel, layerState, selectedKode, basemapId, symb]);
 
   // pratinjau legenda (live)
   useEffect(() => {
@@ -75,10 +75,7 @@ export default function ExportPanel() {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <p className="text-[12.5px] leading-relaxed text-ink-2">
-        Hasil ekspor = <b className="text-foreground">peta persis seperti yang tampil</b> (basemap, zoom, choropleth &amp; layer aktif) ditambah{" "}
-        <b className="text-foreground">legenda simbol &amp; keterangannya</b> di sisi kanan. Tanpa judul atau tata letak tambahan.
-      </p>
+      <p className="text-[12.5px] text-ink-2">Peta persis seperti di layar, ditambah legenda di sisi kanan.</p>
 
       <button onClick={exportMap} disabled={busy || !mapInstance} className="btn btn-primary w-full disabled:opacity-60">
         <Icon name="download" className="h-4 w-4" />
@@ -95,9 +92,7 @@ export default function ExportPanel() {
         <div className="overflow-hidden rounded-md border border-border bg-white">
           <canvas ref={previewRef} className="block h-auto w-full" />
         </div>
-        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
-          Legenda mengikuti indikator Makro, wilayah terpilih, dan layer yang sedang aktif. Atribusi peta dasar dicantumkan sesuai lisensinya.
-        </p>
+
       </div>
     </div>
   );

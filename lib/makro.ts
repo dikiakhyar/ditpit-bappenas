@@ -429,7 +429,8 @@ export function paletteOf(ind: Indicator, cat?: MakroCategory): PaletteId {
 }
 
 /** Pilihan palet oleh pengguna: "auto" = sesuai konteks indikator (paletteOf). */
-export type PaletteChoice = "auto" | PaletteId;
+/** "auto" | palet bawaan | "cb:<ColorBrewer>" | "custom" (warna per kelas dari pengguna). */
+export type PaletteChoice = "auto" | PaletteId | `cb:${string}` | "custom";
 export const PALETTE_OPTIONS: { id: PaletteId; label: string }[] = [
   { id: "biru", label: "Biru" },
   { id: "hijau", label: "Hijau" },
@@ -442,7 +443,7 @@ export const PALETTE_OPTIONS: { id: PaletteId; label: string }[] = [
 
 /** Palet yang dipakai: pilihan pengguna, atau otomatis sesuai konteks indikator. */
 export function resolvePalette(ind: Indicator, cat: MakroCategory | undefined, choice: PaletteChoice = "auto"): PaletteId {
-  return choice === "auto" ? paletteOf(ind, cat) : choice;
+  return choice === "auto" || choice === "custom" || choice.startsWith("cb:") ? paletteOf(ind, cat) : (choice as PaletteId);
 }
 
 /** Contoh warna palet (untuk ikon/legenda kecil). */
@@ -466,7 +467,7 @@ export function quantileBreaks(values: number[], classes = N_CLASSES): number[] 
 }
 
 /** n warna tersebar merata dari palet (kelas sedikit tetap memakai rentang terang→pekat). */
-function spread(ramp: string[], n: number): string[] {
+export function spread(ramp: string[], n: number): string[] {
   if (n <= 0) return [];
   if (n === 1) return [ramp[Math.floor(ramp.length / 2)]];
   return Array.from({ length: n }, (_, i) => ramp[Math.round((i * (ramp.length - 1)) / (n - 1))]);
@@ -478,13 +479,13 @@ export interface NumericScale {
 }
 
 /** Kelas + warna untuk sekumpulan nilai menurut palet. */
-export function numericScale(values: number[], palette: PaletteId, reverse = false): NumericScale {
-  const sc = numericScaleBase(values, palette);
+export function numericScale(values: number[], palette: PaletteId, reverse = false, classes = N_CLASSES): NumericScale {
+  const sc = numericScaleBase(values, palette, classes);
   return reverse ? { breaks: sc.breaks, colors: [...sc.colors].reverse() } : sc;
 }
 
-function numericScaleBase(values: number[], palette: PaletteId): NumericScale {
-  let breaks = quantileBreaks(values);
+function numericScaleBase(values: number[], palette: PaletteId, classes = N_CLASSES): NumericScale {
+  let breaks = quantileBreaks(values, classes);
   if (palette !== "divergen") return { breaks, colors: spread(PALETTES[palette], breaks.length + 1) };
   // divergen: 0 selalu jadi batas kelas; kelas < 0 merah (makin negatif makin pekat), ≥ 0 hijau
   const min = Math.min(...values), max = Math.max(...values);

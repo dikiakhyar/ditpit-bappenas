@@ -42,7 +42,7 @@ export default function StatsPanel() {
       <label className="flex flex-col gap-1">
         <span className="subheader">Wilayah</span>
         <select className="form-select" value={k ?? ""} onChange={(e) => setSelectedKode(e.target.value || null)}>
-          <option value="">— Klik peta atau pilih di sini —</option>
+          <option value="">— Pilih wilayah —</option>
           <option value={KAWASAN}>{KAWASAN_NAMA} (seluruh kawasan · {MAP_PROV_CODES.length} provinsi)</option>
           {options.map(({ p, kabs }) => (
             <optgroup key={p} label={namaWilayah(p)}>
@@ -64,10 +64,8 @@ export default function StatsPanel() {
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-lt text-primary">
             <Icon name="pointer" className="h-5 w-5" />
           </span>
-          <p className="text-[13px] font-medium">Klik kabupaten/kota di peta</p>
-          <p className="text-[12px] leading-relaxed text-muted">
-            Ringkasan indikator utama akan tampil di sini, lengkap dengan tautan ke profil daerahnya.
-          </p>
+          <p className="text-[13px] font-medium">Klik kab/kota di peta</p>
+          <p className="text-[12px] text-muted">atau pilih wilayah di daftar atas.</p>
           <button onClick={() => setSelectedKode(KAWASAN)} className="btn mt-1">
             <Icon name="globe" className="h-4 w-4 text-primary" />
             Lihat ringkasan {KAWASAN_NAMA}
@@ -134,10 +132,6 @@ export default function StatsPanel() {
             Buka profil lengkap
             <Icon name="arrowRight" className="h-4 w-4" />
           </Link>
-          <p className="text-[11.5px] leading-relaxed text-muted">
-            Profil memuat 11 bagian — fiskal, ekonomi, investasi, kesejahteraan, kesehatan, pendidikan, infrastruktur, desa, lingkungan, tata kelola,
-            dan potensi — dengan tren, peringkat antarwilayah, dan tabel.
-          </p>
         </>
       )}
     </div>
