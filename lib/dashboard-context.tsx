@@ -12,7 +12,7 @@ import { LAYERS, type GroupId } from "@/lib/layers";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Map as MlMap } from "maplibre-gl";
-import { MAKRO_CATEGORIES, buildMakro, findIndicator, type MakroCategory, type MakroData } from "@/lib/makro";
+import { MAKRO_CATEGORIES, buildMakro, findIndicator, type MakroCategory, type MakroData, type PaletteChoice } from "@/lib/makro";
 import { DEFAULT_BASEMAP, type BasemapId } from "@/lib/basemap";
 import { useProfil } from "@/lib/profil/useProfil";
 import type { Engine } from "@/lib/profil/engine";
@@ -33,6 +33,9 @@ export interface KabKotaGeo {
     geometry: unknown;
   }>;
 }
+
+/** Tampilan wilayah yang TIDAK dipilih: "abu" = diredupkan abu-abu, "sembunyi" = hilang total (termasuk garis batas). */
+export type FocusMode = "abu" | "sembunyi";
 
 export interface MakroSel {
   catId: string;
@@ -68,6 +71,8 @@ interface DashboardCtx {
   // wilayah terpilih (klik peta / ?kode= di URL) → panel Ringkasan & Profil
   selectedKode: string | null;
   setSelectedKode: (k: string | null) => void;
+  focusMode: FocusMode;
+  setFocusMode: (m: FocusMode) => void;
 
   // basemap
   basemapId: BasemapId;
@@ -88,6 +93,12 @@ interface DashboardCtx {
   setMakroCategory: (catId: string) => void;
   setMakroIndicator: (indId: string) => void;
   setMakroYear: (year: number) => void;
+  /** palet warna pilihan pengguna ("auto" = sesuai konteks indikator) */
+  makroPalette: PaletteChoice;
+  setMakroPalette: (p: PaletteChoice) => void;
+  /** balik urutan warna (terang ↔ pekat) */
+  makroReverse: boolean;
+  setMakroReverse: (v: boolean) => void;
 
   // data
   kabkota: KabKotaGeo | null;
@@ -105,6 +116,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState<Tab>("layer");
   const [selectedKode, setSelectedKode] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState<FocusMode>("abu");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mapInstance, setMapInstance] = useState<MlMap | null>(null);
   const [layerState, setLayerState] = useState<Record<string, LayerState>>(() =>
@@ -124,6 +136,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // ── Data Makro ──
   const [makroOn, setMakroOn] = useState(true);
   const [makroOpacity, setMakroOpacity] = useState(0.82);
+  const [makroPalette, setMakroPalette] = useState<PaletteChoice>("auto");
+  const [makroReverse, setMakroReverse] = useState(false);
   const [rawSel, setMakroSel] = useState<MakroSel>({ catId: MAKRO_CATEGORIES[0].id, indId: MAKRO_CATEGORIES[0].indicators[0].id, year: null });
 
   // ── data: batas wilayah (TopoJSON statis, ±0,6 MB) + database (Google Spreadsheet) ──
@@ -225,6 +239,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     activeCount,
     selectedKode,
     setSelectedKode,
+    focusMode,
+    setFocusMode,
     basemapId,
     setBasemapId,
     makroOn,
@@ -236,6 +252,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setMakroCategory,
     setMakroIndicator,
     setMakroYear,
+    makroPalette,
+    setMakroPalette,
+    makroReverse,
+    setMakroReverse,
     kabkota,
     provinsi,
     makroData,

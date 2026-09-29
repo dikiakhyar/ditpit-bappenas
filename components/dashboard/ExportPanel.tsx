@@ -20,13 +20,13 @@ const slug = (s: string) =>
 
 /** Ekspor = peta persis seperti di layar + legenda (simbol & keterangan). Tanpa judul/tata letak. */
 export default function ExportPanel() {
-  const { layerState, makroOn, makroSel, kabkota, makroData, selectedKode, basemapId, mapInstance } = useDashboard();
+  const { layerState, makroOn, makroSel, kabkota, makroData, selectedKode, basemapId, mapInstance, makroPalette, makroReverse } = useDashboard();
   const previewRef = useRef<HTMLCanvasElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const model: LegendModel = useMemo(() => {
-    const b = makroOn ? bake(kabkota, makroData, makroSel.indId, makroSel.year) : null;
+    const b = makroOn ? bake(kabkota, makroData, makroSel.indId, makroSel.year, { palette: makroPalette, reverse: makroReverse }) : null;
     const total = kabkota?.features.length ?? 0;
     return {
       makro: b ? makroLegend(b, makroSel.year, total) : undefined,
@@ -35,7 +35,7 @@ export default function ExportPanel() {
       selected: selectedKode ? namaWilayah(selectedKode) : undefined,
       attribution: BASEMAPS.find((x) => x.id === basemapId)?.attribution || undefined,
     };
-  }, [makroOn, kabkota, makroData, makroSel, layerState, selectedKode, basemapId]);
+  }, [makroOn, kabkota, makroData, makroSel, layerState, selectedKode, basemapId, makroPalette, makroReverse]);
 
   // pratinjau legenda (live)
   useEffect(() => {

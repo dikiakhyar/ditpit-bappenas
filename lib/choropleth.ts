@@ -8,14 +8,21 @@ import {
   getNumber,
   getRaw,
   numericScale,
-  paletteOf,
+  resolvePalette,
   stepColorExpression,
   categoricalColorExpression,
   type MakroData,
   type Indicator,
   type NumericScale,
   type PaletteId,
+  type PaletteChoice,
 } from "@/lib/makro";
+
+/** Pilihan simbolisasi warna dari pengguna. */
+export interface ColorOpts {
+  palette?: PaletteChoice; // "auto" = sesuai konteks indikator
+  reverse?: boolean; // balik urutan terang ↔ pekat
+}
 
 // tipe GeoJSON longgar
 interface Geo {
@@ -57,7 +64,8 @@ export function bake(
   kabkota: Geo | null,
   data: MakroData | null,
   indId: string,
-  year: number | null
+  year: number | null,
+  opts: ColorOpts = {}
 ): Baked | null {
   const found = findIndicator(indId);
   if (!found || !kabkota) return null;
@@ -95,8 +103,8 @@ export function bake(
     return { ...f, properties: props };
   });
 
-  const palette = paletteOf(ind, cat);
-  const scale: NumericScale = numeric && nums.length ? numericScale(nums, palette) : { breaks: [], colors: [] };
+  const palette = resolvePalette(ind, cat, opts.palette);
+  const scale: NumericScale = numeric && nums.length ? numericScale(nums, palette, opts.reverse) : { breaks: [], colors: [] };
   const breaks = scale.breaks;
   const colorExpr = numeric
     ? stepColorExpression(scale)

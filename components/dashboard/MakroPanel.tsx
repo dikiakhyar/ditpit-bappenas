@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { Icon } from "@/components/ui/icons";
-import { colorOf, findIndicator, formatValue, numericScale, paletteOf } from "@/lib/makro";
+import { colorOf, findIndicator, formatValue, numericScale, paletteSwatch, PALETTE_OPTIONS, resolvePalette, type PaletteChoice } from "@/lib/makro";
+import FocusModeToggle from "./FocusModeToggle";
 import DataSource from "@/components/app/DataSource";
 import { ranking } from "@/lib/choropleth";
 
@@ -34,6 +35,10 @@ export default function MakroPanel() {
     makroData,
     dataStatus,
     makroCatalog,
+    makroPalette,
+    setMakroPalette,
+    makroReverse,
+    setMakroReverse,
   } = useDashboard();
 
   const cat = makroCatalog.find((c) => c.id === makroSel.catId) ?? makroCatalog[0];
@@ -46,9 +51,18 @@ export default function MakroPanel() {
   );
   // warna titik peringkat = warna kelasnya di peta
   const scale = useMemo(
-    () => (ind && ranked.length ? numericScale(ranked.map((r) => r.value), paletteOf(ind, found?.cat)) : null),
-    [ranked, ind, found?.cat]
+    () =>
+      ind && ranked.length
+        ? numericScale(ranked.map((r) => r.value), resolvePalette(ind, found?.cat, makroPalette), makroReverse)
+        : null,
+    [ranked, ind, found?.cat, makroPalette, makroReverse]
   );
+  const numericInd = !!ind && (ind.kind ?? "numeric") === "numeric";
+  const autoPalette = ind ? resolvePalette(ind, found?.cat, "auto") : "biru";
+  const paletteChoices: { id: PaletteChoice; label: string; swatch: string[] }[] = [
+    { id: "auto", label: "Otomatis", swatch: paletteSwatch(autoPalette) },
+    ...PALETTE_OPTIONS.map((p) => ({ id: p.id as PaletteChoice, label: p.label, swatch: paletteSwatch(p.id) })),
+  ];
   const senseHigh = (ind?.sense ?? "high") === "high";
   const best = senseHigh ? ranked.slice(0, 5) : ranked.slice(-5).reverse();
   const bestLabel = senseHigh ? "Tertinggi (terbaik)" : "Terendah (terbaik)";
@@ -142,6 +156,57 @@ export default function MakroPanel() {
         />
         <span className="w-9 text-right font-mono text-[11px] text-muted">{Math.round(makroOpacity * 100)}%</span>
       </div>
+
+      {/* palet warna pilihan pengguna */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Palet warna</span>
+          {numericInd && (
+            <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted">
+              Balik warna
+              <Switch checked={makroReverse} onChange={() => setMakroReverse(!makroReverse)} />
+            </label>
+          )}
+        </div>
+        {numericInd ? (
+          <>
+            <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Palet warna">
+              {paletteChoices.map((p) => {
+                const on = makroPalette === p.id;
+                const sw = makroReverse ? [...p.swatch].reverse() : p.swatch;
+                return (
+                  <button
+                    key={p.id}
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setMakroPalette(p.id)}
+                    title={p.id === "auto" ? "Warna ditentukan otomatis sesuai konteks indikator" : p.label}
+                    className={`flex flex-col gap-1 rounded-md border px-2 py-1.5 text-left transition-colors ${
+                      on ? "border-primary bg-primary-lt" : "border-border bg-surface hover:border-primary/50"
+                    }`}
+                  >
+                    <span className="flex h-2.5 w-full overflow-hidden rounded-sm">
+                      {sw.map((c, i) => (
+                        <span key={i} className="flex-1" style={{ background: c }} />
+                      ))}
+                    </span>
+                    <span className={`truncate text-[11px] ${on ? "font-semibold text-foreground" : "text-muted"}`}>{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[11px] leading-snug text-muted">
+              {makroPalette === "auto"
+                ? "Otomatis: warna mengikuti makna indikator (hijau = makin tinggi makin baik, merah = masalah, dst.)."
+                : "Palet tetap dipakai untuk semua indikator sampai diganti kembali ke Otomatis."}
+            </span>
+          </>
+        ) : (
+          <span className="text-[11px] leading-snug text-muted">Indikator ini berupa kelas/kategori dengan warna baku, jadi paletnya tetap.</span>
+        )}
+      </div>
+
+      <FocusModeToggle />
 
       {/* peringkat (inovasi: ringkasan terbaik berbasis 'sense') */}
       {ind && (ind.kind ?? "numeric") === "numeric" && (

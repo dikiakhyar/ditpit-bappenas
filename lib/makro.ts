@@ -388,6 +388,23 @@ export function paletteOf(ind: Indicator, cat?: MakroCategory): PaletteId {
   return cat?.palette ?? "biru";
 }
 
+/** Pilihan palet oleh pengguna: "auto" = sesuai konteks indikator (paletteOf). */
+export type PaletteChoice = "auto" | PaletteId;
+export const PALETTE_OPTIONS: { id: PaletteId; label: string }[] = [
+  { id: "biru", label: "Biru" },
+  { id: "hijau", label: "Hijau" },
+  { id: "merah", label: "Merah" },
+  { id: "oranye", label: "Oranye" },
+  { id: "ungu", label: "Ungu" },
+  { id: "toska", label: "Toska" },
+  { id: "divergen", label: "Merah–Hijau (divergen)" },
+];
+
+/** Palet yang dipakai: pilihan pengguna, atau otomatis sesuai konteks indikator. */
+export function resolvePalette(ind: Indicator, cat: MakroCategory | undefined, choice: PaletteChoice = "auto"): PaletteId {
+  return choice === "auto" ? paletteOf(ind, cat) : choice;
+}
+
 /** Contoh warna palet (untuk ikon/legenda kecil). */
 export function paletteSwatch(p: PaletteId): string[] {
   return p === "divergen" ? [DIV_NEG[3], DIV_NEG[1], DIV_POS[1], DIV_POS[3]] : PALETTES[p];
@@ -421,7 +438,12 @@ export interface NumericScale {
 }
 
 /** Kelas + warna untuk sekumpulan nilai menurut palet. */
-export function numericScale(values: number[], palette: PaletteId): NumericScale {
+export function numericScale(values: number[], palette: PaletteId, reverse = false): NumericScale {
+  const sc = numericScaleBase(values, palette);
+  return reverse ? { breaks: sc.breaks, colors: [...sc.colors].reverse() } : sc;
+}
+
+function numericScaleBase(values: number[], palette: PaletteId): NumericScale {
   let breaks = quantileBreaks(values);
   if (palette !== "divergen") return { breaks, colors: spread(PALETTES[palette], breaks.length + 1) };
   // divergen: 0 selalu jadi batas kelas; kelas < 0 merah (makin negatif makin pekat), ≥ 0 hijau

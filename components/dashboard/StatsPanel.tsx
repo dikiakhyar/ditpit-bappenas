@@ -12,6 +12,7 @@ import { Tiles } from "@/components/profil/Tiles";
 import { findIndicator, formatValue, getNumber, getRaw, rankKey, valueKey } from "@/lib/makro";
 import { MAP_PROV_CODES, namaWilayah, isProvCode, provOfCode } from "@/lib/wilayah";
 import { nf } from "@/lib/profil/format";
+import FocusModeToggle from "./FocusModeToggle";
 
 /** Tab "Wilayah": ringkasan kab/kota yang diklik di peta + tautan ke Profil Daerah. */
 export default function StatsPanel() {
@@ -53,6 +54,8 @@ export default function StatsPanel() {
           ))}
         </select>
       </label>
+
+      <FocusModeToggle />
 
       {!k ? (
         <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-center">

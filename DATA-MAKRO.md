@@ -28,6 +28,18 @@ Aturan: `palette` pada indikator → bila tidak ada dan `sense: "low"` → merah
 Semua palet lolos uji keterbacaan (kecerahan naik rata, beda antarkelas terlihat, kelas paling terang tetap
 kontras terhadap latar putih). Daftar warna: `PALETTES` di `lib/makro.ts`.
 
+**Palet pilihan pengguna** (panel Makro → "Palet warna"): *Otomatis* memakai aturan di atas; memilih palet lain
+(biru, hijau, merah, oranye, ungu, toska, merah–hijau divergen) berlaku untuk semua indikator numerik sampai
+dikembalikan ke Otomatis. "Balik warna" menukar urutan terang ↔ pekat. Legenda, peringkat, dan ekspor PNG ikut
+berubah. Indikator kategorikal (mis. kelas IRBI) tetap memakai warna kelas bakunya.
+
+## Fokus wilayah terpilih
+Saat kab/kota atau provinsi dipilih (klik peta, tab Wilayah, atau "Fokus" di tab Layer), wilayah lain ditampilkan
+menurut pilihan "Wilayah lain saat memilih" (tab Makro & Wilayah):
+- **Abu-abu** — wilayah lain diredupkan abu-abu, garisnya disamarkan (tetap bisa di-hover).
+- **Sembunyikan** — wilayah lain tidak digambar sama sekali: isi, garis, maupun batas Provinsi/Kab-Kota di tab Layer.
+Keduanya hanya mengganti filter/ekspresi gaya MapLibre (tanpa memuat ulang data), jadi tetap ringan.
+
 Indikator turunan: jumlah penduduk = PDRB ADHB ÷ PDRB per kapita ADHB (per tahun); persentase & kepadatan
 penduduk dihitung darinya; kelas IRBI memakai ambang BNPB (rendah ≤ 72, sedang 72–144, tinggi > 144).
 

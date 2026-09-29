@@ -45,6 +45,9 @@ export default function MapContainer() {
     dataStatus,
     selectedKode,
     setSelectedKode,
+    focusMode,
+    makroPalette,
+    makroReverse,
     setTab,
     setSidebarOpen,
     setMapInstance,
@@ -52,8 +55,8 @@ export default function MapContainer() {
   const params = useSearchParams();
 
   // refs "nilai terbaru" agar handler peta & re-add style memakai data kini
-  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState });
-  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState };
+  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse });
+  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, makroPalette, makroReverse };
   const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
@@ -152,10 +155,10 @@ export default function MapContainer() {
   }
 
   // filter garis wilayah terpilih: kab/kota → kode persis; provinsi → 2 digit awal
-  function selectionFilter(k: string | null): unknown {
-    if (!k) return ["==", ["get", "__kode"], "__none__"];
-    if (Number(k) % 100 === 0) return ["==", ["slice", ["get", "__kode"], 0, 2], k.slice(0, 2)];
-    return ["==", ["get", "__kode"], k];
+  function selectionFilter(k: string | null, prop = "__kode"): unknown {
+    if (!k) return ["==", ["get", prop], "__none__"];
+    if (Number(k) % 100 === 0) return ["==", ["slice", ["to-string", ["get", prop]], 0, 2], k.slice(0, 2)];
+    return ["==", ["to-string", ["get", prop]], k];
   }
 
   // bingkai peta ke wilayah terpilih (dihitung dari geometri GeoJSON)
@@ -184,7 +187,7 @@ export default function MapContainer() {
     const cur = latest.current;
     const src = map.getSource("kabkota") as GeoJSONSource | undefined;
     if (!src) return;
-    const b = bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year);
+    const b = bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, { palette: cur.makroPalette, reverse: cur.makroReverse });
     bakedRef.current = b;
     setLegend(b);
     const vis = cur.makroOn && !!b ? "visible" : "none";
@@ -198,18 +201,29 @@ export default function MapContainer() {
     applyFocus(map);
   }
 
-  // ── fokus wilayah terpilih: yang lain jadi abu-abu ──
-  // Hanya mengganti ekspresi gaya (dievaluasi di GPU) — tanpa setData / hitung ulang,
-  // jadi ringan dipanggil setiap kali pilihan berubah.
+  // ── fokus wilayah terpilih ──
+  // Mode "abu": wilayah lain diredupkan abu-abu. Mode "sembunyi": wilayah lain
+  // tidak digambar sama sekali (isi, garis, batas administrasi).
+  // Hanya mengganti filter/ekspresi gaya (dievaluasi di GPU) — tanpa setData /
+  // hitung ulang, jadi ringan dipanggil setiap kali pilihan berubah.
   function applyFocus(map: MlMap) {
     const cur = latest.current;
+    const k = cur.selectedKode;
+    const hide = !!k && cur.focusMode === "sembunyi";
+    const setF = (id: string, f: unknown) => {
+      if (map.getLayer(id)) map.setFilter(id, (f ?? null) as never);
+    };
+    setF("makro-fill", hide ? selectionFilter(k) : null);
+    setF("makro-outline", hide ? selectionFilter(k) : null);
+    setF("kab-outline", hide ? selectionFilter(k, "kode") : null);
+    setF("prov-outline", hide ? selectionFilter(k, "kode") : null);
+
     const b = bakedRef.current;
     if (!b || !map.getLayer("makro-fill")) return;
-    const k = cur.selectedKode;
     const op = cur.makroOpacity;
     const hover = ["boolean", ["feature-state", "hover"], false];
     const dark = cur.theme === "dark";
-    if (!k) {
+    if (!k || hide) {
       map.setPaintProperty("makro-fill", "fill-color", b.colorExpr as never);
       map.setPaintProperty("makro-fill", "fill-opacity", ["case", hover, Math.min(op + 0.12, 1), op] as never);
       if (map.getLayer("makro-outline")) map.setPaintProperty("makro-outline", "line-opacity", 1);
@@ -430,7 +444,7 @@ export default function MapContainer() {
     if (!map) return;
     if (map.isStyleLoaded() && map.getSource("kabkota")) applyChoropleth(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [makroSel, makroOn, makroOpacity, kabkota, makroData]);
+  }, [makroSel, makroOn, makroOpacity, kabkota, makroData, makroPalette, makroReverse]);
 
   // batas administrasi: data dimuat / layer dinyalakan-dimatikan
   useEffect(() => {
@@ -463,6 +477,13 @@ export default function MapContainer() {
     else map.once("idle", apply);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKode, kabkota, status]);
+
+  // ganti mode fokus (abu-abu / sembunyikan) → cukup ganti filter & gaya, tanpa terbang ulang
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded() && map.getLayer("makro-fill")) applyFocus(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusMode]);
 
   const fb = BASEMAPS.find((b) => b.id === basemapId);
 
