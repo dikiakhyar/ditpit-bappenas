@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Map as MlMap, MapGeoJSONFeature, Popup, GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -11,14 +11,37 @@ import { formatValue, findIndicator } from "@/lib/makro";
 import { makroLegend } from "@/lib/legend";
 import { Icon } from "@/components/ui/icons";
 import { MAP_BOUNDS } from "@/lib/peta-wilayah";
-import { LAYERS } from "@/lib/layers";
-import { isKawasan } from "@/lib/wilayah";
+import { LAYERS, kpLayerId } from "@/lib/layers";
+import { isKawasan, namaWilayah } from "@/lib/wilayah";
+import { KATEGORI, KAT_IDS, KP_COUNT_RATIO, KP_DIAM, KP_TEXT_RATIO, katOf, kpFeatures, kpOffsetExpr, type KatId } from "@/lib/kawasan-prioritas";
 
 // Cakupan peta: 16 provinsi wilayah timur (Sulawesi, Nusa Tenggara, Maluku, Papua) —
 // dihitung dari data batas (lib/peta-wilayah.ts). [[W,S],[E,N]]
 const BOUNDS = MAP_BOUNDS;
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
+
+// ukuran bulatan Kawasan Prioritas per zoom; huruf & angka mengikuti rasio yang sama
+// (offset teks dalam em, offset ikon dalam px × icon-size → tetap sejajar di semua zoom)
+const KP_ZOOM: [number, number][] = [[4, 0.72], [6, 0.9], [8, 1.05], [11, 1.25]];
+const kpSize = (ratio: number) => ["interpolate", ["linear"], ["zoom"], ...KP_ZOOM.flatMap(([z, v]) => [z, +(v * ratio).toFixed(2)])];
+
+/** gambar bulatan kategori (2× untuk layar tajam) → ImageData untuk map.addImage */
+function kpImage(fill: string, stroke: string) {
+  const px = KP_DIAM * 2;
+  const c = document.createElement("canvas");
+  c.width = c.height = px;
+  const ctx = c.getContext("2d")!;
+  ctx.beginPath();
+  ctx.arc(px / 2, px / 2, px / 2 - 2, 0, Math.PI * 2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = stroke;
+  ctx.stroke();
+  return ctx.getImageData(0, 0, px, px);
+}
+const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);
 
 // true bila basemap butuh internet (raster online). Basemap offline
 // (wilayah/polos) tak boleh memicu logika fallback.
@@ -53,12 +76,21 @@ export default function MapContainer() {
     setTab,
     setSidebarOpen,
     setMapInstance,
+    kawasan,
   } = useDashboard();
   const params = useSearchParams();
 
+  // titik bulatan Kawasan Prioritas (hanya kategori yang dinyalakan di tab Layer)
+  const kpVisibleKey = KAT_IDS.filter((k) => layerState[kpLayerId(k)]?.visible).join("");
+  const kpGeo = useMemo(() => {
+    if (!kawasan || !labelGeo || !kpVisibleKey) return null;
+    const pts = new Map<string, [number, number]>(labelGeo.features.map((f) => [f.properties.kode, f.geometry.coordinates]));
+    return kpFeatures(kawasan.entries, pts, new Set(kpVisibleKey.split("") as KatId[]));
+  }, [kawasan, labelGeo, kpVisibleKey]);
+
   // refs "nilai terbaru" agar handler peta & re-add style memakai data kini
-  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo });
-  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo };
+  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo, kawasan, kpGeo });
+  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo, kawasan, kpGeo };
   const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
@@ -134,14 +166,14 @@ export default function MapContainer() {
     }
     // label nama wilayah — paling atas. Provinsi ditambahkan terakhir → didahulukan
     // saat label bertabrakan (label yang tak muat otomatis disembunyikan MapLibre).
-    if (!map.getSource("labels")) map.addSource("labels", { type: "geojson", data: EMPTY_FC as never });
+    if (!map.getSource("nama-wilayah")) map.addSource("nama-wilayah", { type: "geojson", data: EMPTY_FC as never });
     for (const lvl of ["kab", "prov"] as const) {
       const id = `label-${lvl}`;
       if (map.getLayer(id)) continue;
       map.addLayer({
         id,
         type: "symbol",
-        source: "labels",
+        source: "nama-wilayah",
         filter: ["==", ["get", "level"], lvl],
         layout: {
           visibility: "none",
@@ -157,14 +189,72 @@ export default function MapContainer() {
         paint: {},
       } as never);
     }
+    // Kawasan Prioritas — paling atas; tidak menyembunyikan label nama wilayah
+    for (const k of KATEGORI) {
+      const id = `kpi-${k.id}`;
+      if (!map.hasImage(id)) map.addImage(id, kpImage(k.fill, k.stroke), { pixelRatio: 2 });
+    }
+    if (!map.getSource("kp")) map.addSource("kp", { type: "geojson", data: EMPTY_FC as never });
+    if (!map.getLayer("kp-icon")) {
+      map.addLayer({
+        id: "kp-icon",
+        type: "symbol",
+        source: "kp",
+        layout: {
+          "icon-image": ["concat", "kpi-", ["get", "kat"]],
+          "icon-size": kpSize(1),
+          "icon-offset": kpOffsetExpr("icon"),
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "text-field": ["get", "kat"],
+          "text-font": LABEL_FONT,
+          "text-size": kpSize(KP_TEXT_RATIO),
+          "text-offset": kpOffsetExpr("text"),
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+          "symbol-sort-key": ["get", "n"],
+        },
+        paint: { "text-color": "#1f2937" },
+      } as never);
+    }
+    if (!map.getLayer("kp-count")) {
+      // jumlah lokasi (>1) di pojok kanan atas bulatan; tampil mulai zoom 5
+      map.addLayer({
+        id: "kp-count",
+        type: "symbol",
+        source: "kp",
+        minzoom: 5,
+        filter: [">", ["get", "n"], 1],
+        layout: {
+          "text-field": ["to-string", ["get", "n"]],
+          "text-font": LABEL_FONT,
+          "text-size": kpSize(KP_COUNT_RATIO),
+          "text-offset": kpOffsetExpr("count"),
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: { "text-color": "#0b2540", "text-halo-color": "rgba(255,255,255,0.95)", "text-halo-width": 1.4 },
+      } as never);
+    }
     applyChoropleth(map);
     applyLabels(map);
+    applyKawasan(map);
+  }
+
+  // isi bulatan Kawasan Prioritas sesuai kategori yang dinyalakan
+  function applyKawasan(map: MlMap) {
+    const src = map.getSource("kp") as GeoJSONSource | undefined;
+    if (!src) return;
+    const g = latest.current.kpGeo;
+    src.setData((g ?? EMPTY_FC) as never);
+    for (const id of ["kp-icon", "kp-count"]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", g ? "visible" : "none");
+    applyFocus(map);
   }
 
   // isi & gaya label nama wilayah (ukuran, warna, garis tepi) — hanya ganti gaya, ringan
   function applyLabels(map: MlMap) {
     const cur = latest.current;
-    const src = map.getSource("labels") as GeoJSONSource | undefined;
+    const src = map.getSource("nama-wilayah") as GeoJSONSource | undefined;
     if (!src || !map.getLayer("label-kab")) return;
     const L = cur.labels;
     const want = L.mode !== "off" && cur.labelGeo ? "1" : "0";
@@ -198,7 +288,8 @@ export default function MapContainer() {
     return lum > 0.6 ? "rgba(17,24,39,0.85)" : "rgba(255,255,255,0.92)";
   }
 
-  // data & gaya garis batas provinsi / kab-kota (warna menyesuaikan basemap)
+  // data & gaya garis batas: provinsi (tab Makro → Garis batas & label, warna menyesuaikan basemap)
+  // dan kab/kota (tebal & warna pilihan pengguna — tetap tampil walau choropleth dimatikan)
   function applyBoundaries(map: MlMap) {
     const cur = latest.current;
     const sat = cur.basemapId === "satelit";
@@ -221,8 +312,13 @@ export default function MapContainer() {
       map.setPaintProperty(id, "line-width", ["interpolate", ["linear"], ["zoom"], 4, (def?.weight ?? 1) * 0.55, 8, def?.weight ?? 1]);
       map.setPaintProperty(id, "line-opacity", st?.opacity ?? 1);
     };
-    style("kab-outline", "kabkota", "#64748b", "rgba(255,255,255,0.7)");
     style("prov-outline", "prov", "#334155", "rgba(255,255,255,0.95)");
+    if (map.getLayer("kab-outline")) {
+      const { width: w, color } = cur.symb.border;
+      map.setLayoutProperty("kab-outline", "visibility", w > 0 ? "visible" : "none");
+      map.setPaintProperty("kab-outline", "line-color", color);
+      map.setPaintProperty("kab-outline", "line-width", ["interpolate", ["linear"], ["zoom"], 4, w * 0.45, 8, w, 11, w * 1.7]);
+    }
   }
 
   // filter garis wilayah terpilih: kab/kota → kode persis; provinsi → 2 digit awal
@@ -277,20 +373,16 @@ export default function MapContainer() {
     applyFocus(map);
   }
 
-  // garis batas poligon kab/kota: warna & tebal pilihan pengguna (tebal 0 = tanpa garis).
-  // Garis sorot saat kursor di atas wilayah tetap tampil.
+  // garis sorot saat kursor di atas wilayah. Garis batas kab/kota biasa digambar oleh
+  // layer "kab-outline" (applyBoundaries) supaya tetap ada walau choropleth dimatikan.
   function applyBorder(map: MlMap) {
     if (!map.getLayer("makro-outline")) return;
-    const { width: w, color } = latest.current.symb.border;
     const hover = ["boolean", ["feature-state", "hover"], false];
     map.setPaintProperty("makro-outline", "line-color", [
-      "case", hover, latest.current.theme === "dark" ? "#ffffff" : "#0b2540", color,
+      "case", hover, latest.current.theme === "dark" ? "#ffffff" : "#0b2540", "rgba(0,0,0,0)",
     ] as never);
     map.setPaintProperty("makro-outline", "line-width", [
-      "interpolate", ["linear"], ["zoom"],
-      4, ["case", hover, 1.3, w * 0.45],
-      8, ["case", hover, 1.7, w],
-      11, ["case", hover, 2.1, w * 1.7],
+      "interpolate", ["linear"], ["zoom"], 4, ["case", hover, 1.3, 0], 8, ["case", hover, 1.7, 0], 11, ["case", hover, 2.1, 0],
     ] as never);
   }
 
@@ -311,6 +403,18 @@ export default function MapContainer() {
     setF("makro-outline", hide ? selectionFilter(k) : null);
     setF("kab-outline", hide ? selectionFilter(k, "kode") : null);
     setF("prov-outline", hide ? selectionFilter(k, "kode") : null);
+    // garis kab/kota & bulatan kawasan di luar wilayah terpilih: diredupkan (abu) / disembunyikan
+    if (map.getLayer("kab-outline"))
+      map.setPaintProperty("kab-outline", "line-opacity", (k && !hide ? ["case", selectionFilter(k, "kode"), 1, 0.35] : 1) as never);
+    for (const id of ["kp-icon", "kp-count"]) {
+      if (!map.getLayer(id)) continue;
+      const base = id === "kp-count" ? [">", ["get", "n"], 1] : null;
+      const sel = hide ? selectionFilter(k, "w") : null;
+      setF(id, base && sel ? ["all", base, sel] : base ?? sel);
+      const op = k && !hide ? ["case", selectionFilter(k, "w"), 1, 0.3] : 1;
+      map.setPaintProperty(id, "text-opacity", op as never);
+      if (id === "kp-icon") map.setPaintProperty(id, "icon-opacity", op as never);
+    }
     for (const lvl of ["kab", "prov"]) {
       const id = `label-${lvl}`;
       if (!map.getLayer(id)) continue;
@@ -365,6 +469,33 @@ export default function MapContainer() {
         <div class="mlp-val">${valLine}</div>
         ${rank}
         <div class="mlp-foot">Klik untuk ringkasan &amp; profil wilayah</div>
+      </div>`;
+    popupRef.current?.setLngLat([lng, lat]).setHTML(html).addTo(map);
+  }
+
+  // tooltip bulatan Kawasan Prioritas: wilayah, kategori, daftar lokasi bernomor
+  function showKpPopup(map: MlMap, feature: MapGeoJSONFeature, lng: number, lat: number) {
+    const p = (feature.properties ?? {}) as Record<string, unknown>;
+    const w = String(p.w ?? "");
+    const kat = String(p.kat ?? "") as KatId;
+    const k = katOf(kat);
+    const list = (latest.current.kawasan?.entries ?? []).filter((e) => e.kat === kat && (e.kab.includes(w) || (e.provLevel && e.prov === w)));
+    const MAX = 7;
+    const rows = list
+      .slice(0, MAX)
+      .map((e) => {
+        const t = e.lokasi || e.sub || e.kelompok || e.ket;
+        const sub = e.lokasi && e.kelompok ? `<i>${esc(e.kelompok)}</i>` : e.ket && t !== e.ket ? `<i>${esc(e.ket)}</i>` : "";
+        return `<li><b style="background:${k?.fill};border-color:${k?.stroke}">${esc(e.kode)}</b><span>${esc(t)}${sub}</span></li>`;
+      })
+      .join("");
+    const more = list.length > MAX ? `<div class="mlp-rank">+${list.length - MAX} lokasi lain — lihat tab Layer</div>` : "";
+    const html = `
+      <div class="mlp">
+        <div class="mlp-head">${esc(namaWilayah(w))}<span>${esc(k ? `${k.id}. ${k.nama}` : "")} · ${list.length} lokasi</span></div>
+        <ul class="mlp-kp">${rows}</ul>
+        ${more}
+        <div class="mlp-foot">Klik untuk daftar lengkap di tab Layer</div>
       </div>`;
     popupRef.current?.setLngLat([lng, lat]).setHTML(html).addTo(map);
   }
@@ -463,8 +594,11 @@ export default function MapContainer() {
 
       // jaring pengaman waktu: 6 detik basemap online tak menampilkan tile apa pun
       // → paksa fallback ke peta wilayah offline (hindari layar hitam berkepanjangan).
+      const initialBasemap = latest.current.basemapId;
       window.setTimeout(() => {
         if (cancelled || !map) return;
+        // basemap sudah diganti pengguna → pengecekan itu diurus efek ganti-basemap (jangan ikut menilai)
+        if (latest.current.basemapId !== initialBasemap) return;
         const online = needsNetwork(latest.current.basemapId);
         if (online && !tileOkRef.current && !map.areTilesLoaded()) goFallback();
       }, 6000);
@@ -472,9 +606,32 @@ export default function MapContainer() {
       // setiap style dimuat (init / ganti basemap / fallback) → pasang ulang data
       map.on("style.load", () => addMakroLayers(map!));
 
+      // bulatan Kawasan Prioritas: tooltip daftar kawasan; klik → pilih kab/kota + buka tab Layer
+      const overKp = (pt: { x: number; y: number }) =>
+        !!map!.getLayer("kp-icon") && map!.getLayoutProperty("kp-icon", "visibility") !== "none" && map!.queryRenderedFeatures([pt.x, pt.y], { layers: ["kp-icon"] }).length > 0;
+      map.on("mousemove", "kp-icon", (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        map!.getCanvas().style.cursor = "pointer";
+        showKpPopup(map!, f, e.lngLat.lng, e.lngLat.lat);
+      });
+      map.on("mouseleave", "kp-icon", () => {
+        map!.getCanvas().style.cursor = "";
+        popupRef.current?.remove();
+      });
+      map.on("click", "kp-icon", (e) => {
+        const w = e.features?.[0]?.properties?.w as string | undefined;
+        if (!w) return;
+        fromClickRef.current = true;
+        setSelectedKode(String(w));
+        setTab("layer");
+        if (window.matchMedia("(max-width: 1023px)").matches) setSidebarOpen(true);
+      });
+
       // interaksi choropleth
       map.on("mousemove", "makro-fill", (e) => {
         if (!e.features?.length) return;
+        if (overKp(e.point)) return; // tooltip bulatan kawasan didahulukan
         map!.getCanvas().style.cursor = "pointer";
         const f = e.features[0];
         const id = f.id ?? (f.properties?.__kode as string | undefined);
@@ -488,7 +645,7 @@ export default function MapContainer() {
       });
       map.on("click", "makro-fill", (e) => {
         const kode = e.features?.[0]?.properties?.__kode as string | undefined;
-        if (!kode) return;
+        if (!kode || overKp(e.point)) return;
         fromClickRef.current = true;
         setSelectedKode(kode);
         setTab("wilayah");
@@ -557,12 +714,19 @@ export default function MapContainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labels, labelGeo]);
 
-  // batas administrasi: data dimuat / layer dinyalakan-dimatikan
+  // batas administrasi: data dimuat / garis dinyalakan-dimatikan / tebal & warna diubah
   useEffect(() => {
     const map = mapRef.current;
     if (map?.isStyleLoaded() && map.getLayer("prov-outline")) applyBoundaries(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kabkota, provinsi, layerState]);
+  }, [kabkota, provinsi, layerState, symb.border]);
+
+  // Kawasan Prioritas: data dimuat / kategori dinyalakan-dimatikan
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded() && map.getSource("kp")) applyKawasan(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kpGeo]);
 
   // ?kode= dari URL (mis. tombol "Lihat di peta" di halaman Profil)
   const urlKode = params.get("kode");
@@ -661,17 +825,48 @@ export default function MapContainer() {
         <span>{activeCount} layer</span>
       </div>
 
-      <MakroLegend legend={legend} on={makroOn} year={makroSel.year} total={kabkota?.features.length ?? 0} />
+      <MapLegend legend={legend} on={makroOn} year={makroSel.year} total={kabkota?.features.length ?? 0} kats={kpVisibleKey.split("").filter(Boolean) as KatId[]} />
     </div>
   );
 }
 
-function MakroLegend({ legend, on, year, total }: { legend: Baked | null; on: boolean; year: number | null; total: number }) {
-  if (!on || !legend) return null;
-  const lg = makroLegend(legend, year, total);
+function MapLegend({ legend, on, year, total, kats }: { legend: Baked | null; on: boolean; year: number | null; total: number; kats: KatId[] }) {
+  const showMakro = on && !!legend;
+  if (!showMakro && !kats.length) return null;
   return (
     <div className="map-float absolute bottom-3 right-3 z-10 max-h-[60%] w-[230px] overflow-y-auto p-3 text-foreground">
       <p className="subheader mb-1">Legenda</p>
+      {showMakro && <MakroLegendBody legend={legend!} year={year} total={total} />}
+      {kats.length > 0 && (
+        <div className={showMakro ? "mt-2.5 border-t border-border pt-2" : ""}>
+          <p className="mb-1 text-[12px] font-semibold leading-snug">Kawasan Prioritas RPJMN 2025–2029</p>
+          <ul className="flex flex-col gap-1">
+            {kats.map((id) => {
+              const k = katOf(id)!;
+              return (
+                <li key={id} className="flex items-center gap-2 text-[11.5px] leading-snug">
+                  <span
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-[#1f2937]"
+                    style={{ background: k.fill, border: `1.5px solid ${k.stroke}` }}
+                  >
+                    {id}
+                  </span>
+                  <span>{k.nama}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-1.5 text-[10.5px] leading-snug text-muted">Angka kecil = jumlah lokasi pada kab/kota tsb.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MakroLegendBody({ legend, year, total }: { legend: Baked; year: number | null; total: number }) {
+  const lg = makroLegend(legend, year, total);
+  return (
+    <>
       <p className="text-[12px] font-semibold leading-snug">{lg.title}</p>
       {lg.sub && <p className="mb-2 text-[11px] leading-snug text-muted">{lg.sub}</p>}
       {legend.count === 0 ? (
@@ -686,6 +881,6 @@ function MakroLegend({ legend, on, year, total }: { legend: Baked | null; on: bo
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }

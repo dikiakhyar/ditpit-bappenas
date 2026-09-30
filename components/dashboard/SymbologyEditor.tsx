@@ -13,7 +13,6 @@ const NAMES: Record<number, string[]> = {
   5: ["Sangat rendah", "Rendah", "Sedang", "Tinggi", "Sangat tinggi"],
   6: ["Sangat rendah", "Rendah", "Agak rendah", "Agak tinggi", "Tinggi", "Sangat tinggi"],
 };
-const BORDER_PRESETS = ["#c8c8c8", "#8c98aa", "#ffffff", "#334155", "#000000"];
 
 const Lbl = ({ children }: { children: React.ReactNode }) => (
   <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{children}</span>
@@ -259,40 +258,7 @@ export default function SymbologyEditor({ ind, scale, min, max }: { ind: Indicat
         <p className="text-[11.5px] text-muted">Indikator kategori memakai warna kelas baku.</p>
       )}
 
-      {/* garis batas poligon */}
-      <div className="flex flex-col gap-1.5">
-        <Lbl>Garis batas kab/kota</Lbl>
-        <div className="flex items-center gap-2">
-          <input
-            type="range"
-            min={0}
-            max={3}
-            step={0.05}
-            value={symb.border.width}
-            onChange={(e) => setSymb({ border: { ...symb.border, width: Number(e.target.value) } })}
-            className="dash-range h-1 flex-1"
-            aria-label="Tebal garis batas"
-          />
-          <span className="w-16 text-right font-mono text-[11px] text-muted">{symb.border.width === 0 ? "tanpa" : `${symb.border.width.toFixed(2)} px`}</span>
-        </div>
-        {symb.border.width > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <ColorField value={symb.border.color} onChange={(c) => setSymb({ border: { ...symb.border, color: c } })} label="Warna garis batas" />
-            {BORDER_PRESETS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setSymb({ border: { ...symb.border, color: c } })}
-                aria-label={`Garis ${toRgbText(c)}`}
-                title={toRgbText(c)}
-                className={`h-5 w-5 rounded-full border ${symb.border.color === c ? "ring-2 ring-primary ring-offset-1 ring-offset-surface" : "border-border"}`}
-                style={{ background: c }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <button onClick={() => setSymb({ ...DEFAULT_SYMB, manual: symb.manual })} className="self-start text-[11px] text-muted hover:text-foreground hover:underline">
+      <button onClick={() => setSymb({ ...DEFAULT_SYMB, manual: symb.manual, border: symb.border })} className="self-start text-[11px] text-muted hover:text-foreground hover:underline">
         Kembalikan pengaturan bawaan
       </button>
     </div>

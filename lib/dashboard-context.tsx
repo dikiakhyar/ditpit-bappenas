@@ -19,6 +19,7 @@ import { useProfil } from "@/lib/profil/useProfil";
 import type { Engine } from "@/lib/profil/engine";
 import { useTheme, type Theme } from "@/lib/theme";
 import { labelPoints, type LabelPoint } from "@/lib/label-points";
+import { parseKawasan, type KawasanData, type KawasanRaw } from "@/lib/kawasan-prioritas";
 
 export type Tab = "layer" | "makro" | "wilayah" | "ekspor";
 interface LayerState {
@@ -78,7 +79,6 @@ interface DashboardCtx {
   toggleLayer: (id: string) => void;
   setOpacity: (id: string, v: number) => void;
   setGroupVisible: (group: GroupId, v: boolean) => void;
-  setSubgroupVisible: (group: GroupId, subgroup: string | undefined, v: boolean) => void;
   activeCount: number;
 
   // wilayah terpilih (klik peta / ?kode= di URL) → panel Ringkasan & Profil
@@ -124,6 +124,9 @@ interface DashboardCtx {
   dataStatus: "loading" | "ready" | "error";
   /** mesin database (Google Spreadsheet) */
   engine: Engine | null;
+  /** Kawasan Prioritas Provinsi RPJMN 2025–2029 (tab Layer) */
+  kawasan: KawasanData | null;
+  kawasanStatus: "loading" | "ready" | "error";
 }
 
 const Ctx = createContext<DashboardCtx | null>(null);
@@ -205,6 +208,28 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // ── Kawasan Prioritas RPJMN: spreadsheet via server (cache ±5 menit), cadangan salinan lokal ──
+  const [kpRaw, setKpRaw] = useState<KawasanRaw | null>(null);
+  const [kpError, setKpError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const get = (url: string) => fetch(url).then((r) => (r.ok ? (r.json() as Promise<KawasanRaw>) : Promise.reject(new Error(String(r.status)))));
+    get("/api/kawasan-prioritas")
+      .catch(() => get("/data/kawasan-prioritas.json")) // hosting statis / server gagal
+      .then((raw) => !cancelled && setKpRaw(raw))
+      .catch(() => !cancelled && setKpError(true));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const kawasan = useMemo(() => {
+    if (!kpRaw) return null;
+    const d = parseKawasan(kpRaw);
+    if (d.unmatched.length) console.warn("[kawasan-prioritas] kab/kota tidak dikenali:", d.unmatched);
+    return d;
+  }, [kpRaw]);
+  const kawasanStatus: "loading" | "ready" | "error" = kawasan ? "ready" : kpError ? "error" : "loading";
+
   const labelGeo = useMemo(
     () =>
       geo
@@ -257,19 +282,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       return next;
     });
 
-  const setSubgroupVisible = (
-    group: GroupId,
-    subgroup: string | undefined,
-    v: boolean
-  ) =>
-    setLayerState((s) => {
-      const next = { ...s };
-      LAYERS.filter((l) => l.group === group && l.subgroup === subgroup).forEach((l) => {
-        next[l.id] = { ...next[l.id], visible: v };
-      });
-      return next;
-    });
-
   const activeCount = useMemo(
     () => Object.values(layerState).filter((l) => l.visible).length,
     [layerState]
@@ -286,7 +298,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     toggleLayer,
     setOpacity,
     setGroupVisible,
-    setSubgroupVisible,
     activeCount,
     selectedKode,
     setSelectedKode,
@@ -313,6 +324,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     makroData,
     dataStatus,
     engine,
+    kawasan,
+    kawasanStatus,
     mapInstance,
     setMapInstance,
   };

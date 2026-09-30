@@ -84,3 +84,16 @@ Buka `http://localhost:3000/api/database` saat situs berjalan, simpan hasilnya s
 - `lib/db/build.ts` — aturan konversi sheet → data situs.
 - `lib/db/source.ts` — unduh spreadsheet, cache 5 menit, cadangan salinan lokal.
 - `app/api/database/route.ts`, `app/api/database/refresh/route.ts` — endpoint.
+
+## Kawasan Prioritas Provinsi RPJMN 2025–2029 (tab Layer)
+Bulatan A–E di peta dibaca dari spreadsheet terpisah **Daftar_Kawasan_Provinsi_RPJMN_2025-2029** (sheet "Daftar Kawasan"),
+dengan pola yang sama: server membaca langsung (cache ±5 menit) lewat `/api/kawasan-prioritas`, cadangan
+`public/data/kawasan-prioritas.json`.
+- Kolom dikenali dari judulnya: `Provinsi`, `Kode` (A1, B2, …), `Kelompok / Nama Kawasan`, `Sub-Kelompok`,
+  `Nama Lokasi / Uraian`, `Kabupaten/Kota`, `Keterangan / Potensi`. Huruf pertama `Kode` = kategori.
+- `Kabupaten/Kota` boleh berisi beberapa wilayah ("Kab. Sigi dan Kab. Poso", "Kab. A, Kab. B, dan Kab. C").
+  Ejaan seperti "Toli-Toli"/"Tolitoli", "Pare-Pare"/"Parepare" dikenali otomatis; nama yang tak dikenali
+  ditandai di panel Layer. Teks tanpa kab/kota (mis. "10 Kab. di Provinsi NTT") ditandai di tingkat provinsi.
+- Ganti berkas: env `KAWASAN_SHEET_ID`. Baca ulang sekarang: `/api/kawasan-prioritas?refresh=1`.
+- Memperbarui salinan lokal: buka `/api/kawasan-prioritas`, simpan sebagai `public/data/kawasan-prioritas.json`.
+- Kode: `lib/kawasan-prioritas.ts` (pencocokan wilayah & titik simbol), `lib/db/kawasan-source.ts`.

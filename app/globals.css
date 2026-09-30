@@ -433,3 +433,12 @@ table.tv thead th {
   .map-pulse { animation: none; }
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ── tooltip bulatan Kawasan Prioritas ── */
+.mlp-kp { list-style: none; margin: 0; padding: 6px 10px 7px; display: flex; flex-direction: column; gap: 4px; max-width: 260px; }
+.mlp-kp li { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; line-height: 1.3; color: var(--foreground); }
+.mlp-kp b {
+  flex: none; min-width: 22px; padding: 1px 4px; border-radius: 9999px; border: 1.5px solid;
+  font-size: 10px; font-weight: 700; text-align: center; color: #1f2937;
+}
+.mlp-kp i { display: block; font-style: normal; font-size: 10.5px; color: var(--muted); }

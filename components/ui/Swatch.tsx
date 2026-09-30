@@ -45,7 +45,12 @@ export function Swatch({ layer, size = 16 }: { layer: LayerDef; size?: number })
   const sym = layer.symbol ?? "circle";
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} aria-hidden="true">
-      {sym === "circle" && <circle cx={mid} cy={mid} r={r} fill={c} stroke="#fff" strokeWidth={1.2} />}
+      {sym === "circle" && <circle cx={mid} cy={mid} r={r} fill={c} stroke={layer.stroke ?? "#fff"} strokeWidth={1.2} />}
+      {sym === "circle" && layer.letter && (
+        <text x={mid} y={mid} dy="0.35em" textAnchor="middle" fontSize={r * 1.15} fontWeight={700} fill="#1f2937">
+          {layer.letter}
+        </text>
+      )}
       {sym === "square" && <rect x={mid - r} y={mid - r} width={r * 2} height={r * 2} rx={1} fill={c} stroke="#fff" strokeWidth={1.2} />}
       {sym === "diamond" && <path d={`M${mid} ${mid - r}L${mid + r} ${mid}L${mid} ${mid + r}L${mid - r} ${mid}Z`} fill={c} stroke="#fff" strokeWidth={1.2} />}
       {sym === "triangle" && <path d={`M${mid} ${mid - r}L${mid + r} ${mid + r}L${mid - r} ${mid + r}Z`} fill={c} stroke="#fff" strokeWidth={1.2} />}

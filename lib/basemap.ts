@@ -103,7 +103,8 @@ function baseStyle(id: BasemapId, theme: "light" | "dark"): StyleSpecification {
       return rasterStyle(
         [
           { id: "base", tiles: esriImagery },
-          { id: "labels", tiles: esriLabels },
+          // id sengaja bukan "labels": nama itu dipakai sumber label nama wilayah di MapContainer
+          { id: "esri-labels", tiles: esriLabels },
         ],
         ESRI,
         "#0b1a2b"

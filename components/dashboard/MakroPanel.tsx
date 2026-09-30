@@ -8,6 +8,7 @@ import { makeScale } from "@/lib/classify";
 import FocusModeToggle from "./FocusModeToggle";
 import KawasanSummary from "./KawasanSummary";
 import SymbologyEditor from "./SymbologyEditor";
+import BatasLabelSettings from "./BatasLabelSettings";
 import { KAWASAN } from "@/lib/wilayah";
 import DataSource from "@/components/app/DataSource";
 import { ranking } from "@/lib/choropleth";
@@ -21,7 +22,7 @@ function Switch({ checked, onChange, label }: { checked: boolean; onChange: () =
       onClick={onChange}
       className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-primary" : "bg-border"}`}
     >
-      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
+      <span className={`absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
     </button>
   );
 }
@@ -61,7 +62,12 @@ export default function MakroPanel() {
     symb,
     setSelectedKode,
     setTab,
+    labels,
   } = useDashboard();
+  const labelBadge =
+    labels.mode !== "off" ? (
+      <span className="rounded-full bg-primary-lt px-1.5 text-[10px] font-medium text-primary">label aktif</span>
+    ) : null;
 
   const cat = makroCatalog.find((c) => c.id === makroSel.catId) ?? makroCatalog[0];
   const found = findIndicator(makroSel.indId, makroCatalog);
@@ -175,6 +181,11 @@ export default function MakroPanel() {
             <FocusModeToggle />
           </div>
         </div>
+      </Section>
+
+      {/* garis batas + label nama wilayah: satu tempat dengan simbolisasi */}
+      <Section title="Garis batas & label" icon="mappin" aside={labelBadge}>
+        <BatasLabelSettings />
       </Section>
 
       <KawasanSummary

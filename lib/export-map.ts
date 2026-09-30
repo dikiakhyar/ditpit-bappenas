@@ -83,10 +83,19 @@ function drawSwatch(ctx: CanvasRenderingContext2D, l: LayerDef, x: number, y: nu
     ctx.lineWidth = 1.2;
     const sym = l.symbol ?? "circle";
     if (sym === "circle") {
+      if (l.stroke) ctx.strokeStyle = l.stroke;
       ctx.beginPath();
       ctx.arc(mid, mid, r, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+      if (l.letter) {
+        ctx.fillStyle = "#1f2937";
+        ctx.font = `700 ${Math.round(r * 1.15)}px ${FONT}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(l.letter, mid, mid + 0.5);
+        ctx.textAlign = "left";
+      }
     } else if (sym === "square") {
       roundRect(ctx, mid - r, mid - r, r * 2, r * 2, 1);
       ctx.fill();
