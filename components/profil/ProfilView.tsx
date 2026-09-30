@@ -51,7 +51,7 @@ export default function ProfilView() {
     try {
       localStorage.setItem(LS_KEY, sel);
     } catch {}
-    document.title = `${E?.name(sel)} · Profil Daerah — DITPIT Bappenas`;
+    document.title = `${E?.name(sel)} · Profil Daerah - KASUARI Bappenas`;
     if (kode !== sel) window.history.replaceState(null, "", `/profil?kode=${sel}`);
   }, [sel, E, kode]);
 

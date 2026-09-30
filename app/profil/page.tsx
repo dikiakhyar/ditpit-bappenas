@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import ProfilView from "@/components/profil/ProfilView";
 
 export const metadata: Metadata = {
-  title: "Profil Daerah — DITPIT Bappenas",
+  title: "Profil Daerah - KASUARI Bappenas",
   description: "Profil indikator pembangunan provinsi dan kabupaten/kota kawasan timur Indonesia.",
 };
 

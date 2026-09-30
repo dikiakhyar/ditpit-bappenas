@@ -13,9 +13,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "DITPIT · Bappenas — Dashboard Wilayah",
+  title: "KASUARI Bappenas - Dashboard Wilayah",
   description:
-    "Peta tematik dan profil daerah kawasan timur Indonesia — Direktorat PIT, Bappenas.",
+    "Peta tematik dan profil daerah kawasan timur Indonesia - Direktorat PIT Bappenas.",
 };
 
 // Terapkan tema tersimpan sebelum paint pertama (hindari kedip terang→gelap).
