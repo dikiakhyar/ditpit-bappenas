@@ -41,8 +41,8 @@ export default function AppHeader({ leading }: { leading?: ReactNode }) {
         <Link href="/" className="flex shrink-0 items-center gap-2.5 pr-1">
           <Image src="/logo.png" alt="Logo Bappenas" width={30} height={30} priority className="h-7 w-7 object-contain" />
           <span className="hidden leading-tight sm:block">
-            <span className="block text-[13.5px] font-semibold tracking-tight">DITPIT Bappenas</span>
-            <span className="block text-[11px] text-muted">Dashboard Wilayah Timur</span>
+            <span className="block text-[13.5px] font-semibold tracking-tight">KASUARI Bappenas</span>
+            <span className="block text-[11px] text-muted">Kumpulan statistik Unggulan Regional Indonesia Timur</span>
           </span>
         </Link>
 
