@@ -118,6 +118,12 @@ const PATHS: Record<string, ReactNode> = {
       <path d="m13 6 6 6-6 6" />
     </>
   ),
+  arrowUp: (
+    <>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </>
+  ),
   map: (
     <>
       <path d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3z" />

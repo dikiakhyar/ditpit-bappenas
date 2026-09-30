@@ -18,11 +18,12 @@ export function subscribeLocation(cb: () => void) {
 export function notifyLocation() {
   window.dispatchEvent(new Event(EVT));
 }
-/** Buka wilayah `kode` di halaman Profil yang sedang terbuka. */
-export function goToRegion(kode: string) {
+/** Buka wilayah `kode` di halaman Profil yang sedang terbuka.
+ *  `keepScroll` = tetap di posisi baca sekarang (dipakai pemilih wilayah yang melekat di atas). */
+export function goToRegion(kode: string, opts: { keepScroll?: boolean } = {}) {
   window.history.pushState(null, "", `/profil?kode=${kode}`);
   notifyLocation();
-  window.scrollTo({ top: 0 });
+  if (!opts.keepScroll) window.scrollTo({ top: 0 });
 }
 
 // ── perpindahan dari halaman lain ke Profil ──────────────────────────────

@@ -65,7 +65,7 @@ export default function Sidebar() {
           <span>
             {activeCount} layer aktif{makroOn ? " · choropleth" : ""}
           </span>
-          <span className="font-mono">DITPIT · Bappenas</span>
+          <span className="font-mono">KASUARI · Bappenas</span>
         </div>
       </aside>
     </>

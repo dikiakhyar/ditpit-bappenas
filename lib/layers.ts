@@ -5,13 +5,15 @@
 // - Grup "admin" (garis batas provinsi) diatur dari tab Makro → "Garis batas & label",
 //   bersama garis batas kab/kota & label nama wilayah, agar semua pengaturan tampilan peta
 //   ada di satu tempat.
+// - Grup "jalan" = Jalan Nasional (lib/jalan.ts), tampil sesuai provinsi/kab-kota terpilih.
 // - Grup "kawasan" = Kawasan Prioritas Provinsi RPJMN 2025–2029 (tab Layer): satu layer per
 //   kategori A–E, digambar sebagai bulatan berhuruf di tiap kab/kota (lib/kawasan-prioritas.ts).
 
 import { KATEGORI } from "./kawasan-prioritas";
+import { JALAN_COLOR, JALAN_LAYER_ID, JALAN_URL } from "./jalan";
 
 export type Geometry = "area" | "line" | "point";
-export type GroupId = "admin" | "kawasan";
+export type GroupId = "admin" | "jalan" | "kawasan";
 export type PointSymbol = "circle" | "square" | "triangle" | "diamond" | "cross";
 export type LineDash = "solid" | "dashed" | "dotted";
 
@@ -54,6 +56,7 @@ export interface SubgroupDef {
 
 export const GROUPS: GroupDef[] = [
   { id: "admin", name: "Batas Administrasi" },
+  { id: "jalan", name: "Jaringan Jalan" },
   { id: "kawasan", name: "Kawasan Prioritas RPJMN 2025–2029" },
 ];
 
@@ -72,6 +75,9 @@ export const kpLayerId = (kat: string) => `kp-${kat}`;
 export const LAYERS: LayerDef[] = [
   // ── Batas Administrasi ── sumber: public/data/wilayah.topo.json (SHP KabKotaPIT)
   { id: "prov", name: "Batas provinsi", group: "admin", geometry: "area", outline: true, color: "#334155", weight: 1.3, defaultVisible: true, defaultOpacity: 1, source: "/data/wilayah.topo.json" },
+
+  // ── Jalan Nasional (garis merah; tebal & cakupan wilayah diatur di tab Layer) ──
+  { id: JALAN_LAYER_ID, name: "Jalan nasional", group: "jalan", geometry: "line", color: JALAN_COLOR, weight: 2.6, dash: "solid", defaultVisible: false, defaultOpacity: 1, source: JALAN_URL },
 
   // ── Kawasan Prioritas RPJMN 2025–2029 (bulatan per kategori) ──
   ...KATEGORI.map(

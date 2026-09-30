@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/icons";
 import { MAP_BOUNDS } from "@/lib/peta-wilayah";
 import { LAYERS, kpLayerId } from "@/lib/layers";
 import { isKawasan, namaWilayah } from "@/lib/wilayah";
+import { JALAN_COLOR, JALAN_LAYER_ID, fmtKm, fungsiNama, jalanFilter, jalanScope } from "@/lib/jalan";
 import { KATEGORI, KAT_IDS, KP_COUNT_RATIO, KP_DIAM, KP_TEXT_RATIO, katOf, kpFeatures, kpOffsetExpr, type KatId } from "@/lib/kawasan-prioritas";
 
 // Cakupan peta: 16 provinsi wilayah timur (Sulawesi, Nusa Tenggara, Maluku, Papua) —
@@ -77,7 +78,12 @@ export default function MapContainer() {
     setSidebarOpen,
     setMapInstance,
     kawasan,
+    jalan,
+    jalanWidth,
+    jalanCakupan,
   } = useDashboard();
+  const jalanOn = !!layerState[JALAN_LAYER_ID]?.visible;
+  const jalanScp = jalanScope(selectedKode, jalanCakupan, isKawasan(selectedKode));
   const params = useSearchParams();
 
   // titik bulatan Kawasan Prioritas (hanya kategori yang dinyalakan di tab Layer)
@@ -89,11 +95,12 @@ export default function MapContainer() {
   }, [kawasan, labelGeo, kpVisibleKey]);
 
   // refs "nilai terbaru" agar handler peta & re-add style memakai data kini
-  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo, kawasan, kpGeo });
-  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo, kawasan, kpGeo };
+  const latest = useRef({ theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo, kawasan, kpGeo, jalan, jalanOn, jalanWidth, jalanScp });
+  latest.current = { theme, basemapId, makroOn, makroOpacity, makroSel, kabkota, provinsi, makroData, selectedKode, layerState, focusMode, symb, labels, labelGeo, kawasan, kpGeo, jalan, jalanOn, jalanWidth, jalanScp };
   const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
+  const jalanHoverRef = useRef<string | number | null>(null);
   const triedFallbackRef = useRef(false);
   const tileOkRef = useRef(false); // true bila ≥1 tile basemap online berhasil dimuat
 
@@ -164,6 +171,23 @@ export default function MapContainer() {
         },
       } as never);
     }
+    // Jalan Nasional — di atas choropleth & garis batas, di bawah label & bulatan kawasan.
+    // "jalan-hit" = garis lebar tak terlihat agar ruas mudah disorot kursor.
+    if (!map.getSource("jalan")) map.addSource("jalan", { type: "geojson", data: EMPTY_FC as never, generateId: true });
+    const jHover = ["boolean", ["feature-state", "hover"], false];
+    if (!map.getLayer("jalan-casing"))
+      map.addLayer({ id: "jalan-casing", type: "line", source: "jalan", layout: { "line-join": "round", "line-cap": "round", visibility: "none" }, paint: { "line-color": "rgba(255,255,255,0.85)" } } as never);
+    if (!map.getLayer("jalan-line"))
+      map.addLayer({
+        id: "jalan-line",
+        type: "line",
+        source: "jalan",
+        layout: { "line-join": "round", "line-cap": "round", visibility: "none" },
+        paint: { "line-color": ["case", jHover, "#8a0008", JALAN_COLOR] },
+      } as never);
+    if (!map.getLayer("jalan-hit"))
+      map.addLayer({ id: "jalan-hit", type: "line", source: "jalan", layout: { visibility: "none" }, paint: { "line-width": 12, "line-opacity": 0 } } as never);
+
     // label nama wilayah — paling atas. Provinsi ditambahkan terakhir → didahulukan
     // saat label bertabrakan (label yang tak muat otomatis disembunyikan MapLibre).
     if (!map.getSource("nama-wilayah")) map.addSource("nama-wilayah", { type: "geojson", data: EMPTY_FC as never });
@@ -239,6 +263,30 @@ export default function MapContainer() {
     applyChoropleth(map);
     applyLabels(map);
     applyKawasan(map);
+    applyJalan(map);
+  }
+
+  // Jalan Nasional: data (sekali), tampil/tidak, tebal, dan cakupan wilayah (provinsi / kab-kota terpilih)
+  function applyJalan(map: MlMap) {
+    const cur = latest.current;
+    const src = map.getSource("jalan") as GeoJSONSource | undefined;
+    if (!src || !map.getLayer("jalan-line")) return;
+    const tagged = src as unknown as { __k?: string };
+    if (cur.jalan && tagged.__k !== "1") {
+      src.setData(cur.jalan as never);
+      tagged.__k = "1";
+    }
+    const vis = cur.jalanOn && cur.jalan ? "visible" : "none";
+    const w = cur.jalanWidth;
+    const hover = ["boolean", ["feature-state", "hover"], false];
+    const width = (extra = 0) => ["interpolate", ["linear"], ["zoom"], 4, ["case", hover, w * 0.55 + 1.5 + extra, w * 0.55 + extra], 8, ["case", hover, w + 1.5 + extra, w + extra], 12, ["case", hover, w * 1.6 + 1.5 + extra, w * 1.6 + extra]];
+    const f = jalanFilter(cur.jalanScp);
+    for (const id of ["jalan-casing", "jalan-line", "jalan-hit"]) {
+      map.setLayoutProperty(id, "visibility", vis);
+      map.setFilter(id, (f ?? null) as never);
+    }
+    map.setPaintProperty("jalan-line", "line-width", width() as never);
+    map.setPaintProperty("jalan-casing", "line-width", width(2) as never);
   }
 
   // isi bulatan Kawasan Prioritas sesuai kategori yang dinyalakan
@@ -473,6 +521,23 @@ export default function MapContainer() {
     popupRef.current?.setLngLat([lng, lat]).setHTML(html).addTo(map);
   }
 
+  // tooltip ruas Jalan Nasional: nama ruas, fungsi, panjang ruas & panjang di kab/kota tsb
+  function showJalanPopup(map: MlMap, feature: MapGeoJSONFeature, lng: number, lat: number) {
+    const p = (feature.properties ?? {}) as Record<string, unknown>;
+    const pj = Number(p.pj) || 0;
+    const km = Number(p.km) || 0;
+    const k = String(p.k ?? "");
+    const split = Math.abs(pj - km) > 0.05;
+    const html = `
+      <div class="mlp">
+        <div class="mlp-head">${esc(String(p.n ?? "—"))}<span>Jalan nasional · ${esc(fungsiNama(String(p.f ?? "")))} · ruas ${esc(String(p.r ?? ""))}</span></div>
+        <div class="mlp-ind">Panjang ruas</div>
+        <div class="mlp-val">${fmtKm(pj)} km</div>
+        ${split ? `<div class="mlp-rank">di ${esc(namaWilayah(k))}: <b>${fmtKm(km)} km</b></div>` : `<div class="mlp-rank">${esc(namaWilayah(k))}</div>`}
+      </div>`;
+    popupRef.current?.setLngLat([lng, lat]).setHTML(html).addTo(map);
+  }
+
   // tooltip bulatan Kawasan Prioritas: wilayah, kategori, daftar lokasi bernomor
   function showKpPopup(map: MlMap, feature: MapGeoJSONFeature, lng: number, lat: number) {
     const p = (feature.properties ?? {}) as Record<string, unknown>;
@@ -628,10 +693,34 @@ export default function MapContainer() {
         if (window.matchMedia("(max-width: 1023px)").matches) setSidebarOpen(true);
       });
 
+      // ruas Jalan Nasional: sorot + tooltip nama ruas (bulatan kawasan tetap didahulukan)
+      const overJalan = (pt: { x: number; y: number }) =>
+        !!map!.getLayer("jalan-hit") && map!.getLayoutProperty("jalan-hit", "visibility") !== "none" && map!.queryRenderedFeatures([pt.x, pt.y], { layers: ["jalan-hit"] }).length > 0;
+      const clearJalanHover = () => {
+        if (jalanHoverRef.current != null) map!.setFeatureState({ source: "jalan", id: jalanHoverRef.current }, { hover: false });
+        jalanHoverRef.current = null;
+      };
+      map.on("mousemove", "jalan-hit", (e) => {
+        const f = e.features?.[0];
+        if (!f || overKp(e.point)) return clearJalanHover();
+        map!.getCanvas().style.cursor = "pointer";
+        if (f.id != null && f.id !== jalanHoverRef.current) {
+          clearJalanHover();
+          jalanHoverRef.current = f.id;
+          map!.setFeatureState({ source: "jalan", id: f.id }, { hover: true });
+        }
+        showJalanPopup(map!, f, e.lngLat.lng, e.lngLat.lat);
+      });
+      map.on("mouseleave", "jalan-hit", () => {
+        clearJalanHover();
+        map!.getCanvas().style.cursor = "";
+        popupRef.current?.remove();
+      });
+
       // interaksi choropleth
       map.on("mousemove", "makro-fill", (e) => {
         if (!e.features?.length) return;
-        if (overKp(e.point)) return; // tooltip bulatan kawasan didahulukan
+        if (overKp(e.point) || overJalan(e.point)) return; // tooltip bulatan kawasan / ruas jalan didahulukan
         map!.getCanvas().style.cursor = "pointer";
         const f = e.features[0];
         const id = f.id ?? (f.properties?.__kode as string | undefined);
@@ -720,6 +809,12 @@ export default function MapContainer() {
     if (map?.isStyleLoaded() && map.getLayer("prov-outline")) applyBoundaries(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kabkota, provinsi, layerState, symb.border]);
+
+  // Jalan Nasional: data dimuat / dinyalakan / tebal / cakupan wilayah berubah
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded() && map.getSource("jalan")) applyJalan(map);
+  }, [jalan, jalanOn, jalanWidth, jalanScp]);
 
   // Kawasan Prioritas: data dimuat / kategori dinyalakan-dimatikan
   useEffect(() => {
@@ -825,20 +920,26 @@ export default function MapContainer() {
         <span>{activeCount} layer</span>
       </div>
 
-      <MapLegend legend={legend} on={makroOn} year={makroSel.year} total={kabkota?.features.length ?? 0} kats={kpVisibleKey.split("").filter(Boolean) as KatId[]} />
+      <MapLegend legend={legend} on={makroOn} year={makroSel.year} total={kabkota?.features.length ?? 0} kats={kpVisibleKey.split("").filter(Boolean) as KatId[]} jalan={jalanOn && !!jalan} />
     </div>
   );
 }
 
-function MapLegend({ legend, on, year, total, kats }: { legend: Baked | null; on: boolean; year: number | null; total: number; kats: KatId[] }) {
+function MapLegend({ legend, on, year, total, kats, jalan }: { legend: Baked | null; on: boolean; year: number | null; total: number; kats: KatId[]; jalan: boolean }) {
   const showMakro = on && !!legend;
-  if (!showMakro && !kats.length) return null;
+  if (!showMakro && !kats.length && !jalan) return null;
   return (
     <div className="map-float absolute bottom-3 right-3 z-10 max-h-[60%] w-[230px] overflow-y-auto p-3 text-foreground">
       <p className="subheader mb-1">Legenda</p>
       {showMakro && <MakroLegendBody legend={legend!} year={year} total={total} />}
+      {jalan && (
+        <div className={`flex items-center gap-2 text-[11.5px] ${showMakro ? "mt-2.5 border-t border-border pt-2" : ""}`}>
+          <span className="h-[3px] w-5 shrink-0 rounded-full" style={{ background: JALAN_COLOR, boxShadow: "0 0 0 1px rgba(255,255,255,0.8)" }} />
+          <span className="font-medium">Jalan nasional</span>
+        </div>
+      )}
       {kats.length > 0 && (
-        <div className={showMakro ? "mt-2.5 border-t border-border pt-2" : ""}>
+        <div className={showMakro || jalan ? "mt-2.5 border-t border-border pt-2" : ""}>
           <p className="mb-1 text-[12px] font-semibold leading-snug">Kawasan Prioritas RPJMN 2025–2029</p>
           <ul className="flex flex-col gap-1">
             {kats.map((id) => {

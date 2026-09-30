@@ -97,3 +97,10 @@ dengan pola yang sama: server membaca langsung (cache ±5 menit) lewat `/api/kaw
 - Ganti berkas: env `KAWASAN_SHEET_ID`. Baca ulang sekarang: `/api/kawasan-prioritas?refresh=1`.
 - Memperbarui salinan lokal: buka `/api/kawasan-prioritas`, simpan sebagai `public/data/kawasan-prioritas.json`.
 - Kode: `lib/kawasan-prioritas.ts` (pencocokan wilayah & titik simbol), `lib/db/kawasan-source.ts`.
+
+## Jalan Nasional (tab Layer)
+Garis merah jalan nasional dari `components/JalanNasionalPIT.gpkg` (1.017 ruas; tidak di-commit karena ±64 MB).
+Yang dipakai situs adalah hasil konversinya, `public/data/jalan-nasional.geojson` (±1,8 MB, baru diunduh saat layer dinyalakan).
+- Tiap ruas dipotong menurut batas kab/kota peta, jadi bisa ditampilkan per provinsi atau per kab/kota terpilih.
+- Panjang per wilayah = panjang resmi ruas (kolom `panjang`) × porsi ruas di wilayah tsb; total 18.520 km.
+- GPKG diperbarui → jalankan `scripts/build-jalan-nasional.py` (cara pakai ada di kepala berkas), lalu commit GeoJSON-nya.

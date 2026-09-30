@@ -19,6 +19,7 @@ import { useProfil } from "@/lib/profil/useProfil";
 import type { Engine } from "@/lib/profil/engine";
 import { useTheme, type Theme } from "@/lib/theme";
 import { labelPoints, type LabelPoint } from "@/lib/label-points";
+import { JALAN_DEFAULT_WIDTH, JALAN_LAYER_ID, JALAN_URL, type JalanCakupan, type JalanFC } from "@/lib/jalan";
 import { parseKawasan, type KawasanData, type KawasanRaw } from "@/lib/kawasan-prioritas";
 
 export type Tab = "layer" | "makro" | "wilayah" | "ekspor";
@@ -127,6 +128,14 @@ interface DashboardCtx {
   /** Kawasan Prioritas Provinsi RPJMN 2025–2029 (tab Layer) */
   kawasan: KawasanData | null;
   kawasanStatus: "loading" | "ready" | "error";
+  /** Jalan Nasional — dimuat saat layer pertama kali dinyalakan */
+  jalan: JalanFC | null;
+  jalanStatus: "idle" | "loading" | "ready" | "error";
+  jalanWidth: number;
+  setJalanWidth: (v: number) => void;
+  /** bila kab/kota terpilih: jalan di kab/kota itu saja, atau di seluruh provinsinya */
+  jalanCakupan: JalanCakupan;
+  setJalanCakupan: (v: JalanCakupan) => void;
 }
 
 const Ctx = createContext<DashboardCtx | null>(null);
@@ -230,6 +239,25 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [kpRaw]);
   const kawasanStatus: "loading" | "ready" | "error" = kawasan ? "ready" : kpError ? "error" : "loading";
 
+  // ── Jalan Nasional: diunduh sekali saat layer pertama kali dinyalakan ──
+  const [jalan, setJalan] = useState<JalanFC | null>(null);
+  const [jalanStatus, setJalanStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [jalanWidth, setJalanWidth] = useState(JALAN_DEFAULT_WIDTH);
+  const [jalanCakupan, setJalanCakupan] = useState<JalanCakupan>("kab");
+  const jalanOn = !!layerState[JALAN_LAYER_ID]?.visible;
+  useEffect(() => {
+    if (!jalanOn || jalanStatus !== "idle") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setJalanStatus("loading");
+    fetch(JALAN_URL)
+      .then((r) => (r.ok ? (r.json() as Promise<JalanFC>) : Promise.reject(new Error(String(r.status)))))
+      .then((fc) => {
+        setJalan(fc);
+        setJalanStatus("ready");
+      })
+      .catch(() => setJalanStatus("error"));
+  }, [jalanOn, jalanStatus]);
+
   const labelGeo = useMemo(
     () =>
       geo
@@ -326,6 +354,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     engine,
     kawasan,
     kawasanStatus,
+    jalan,
+    jalanStatus,
+    jalanWidth,
+    setJalanWidth,
+    jalanCakupan,
+    setJalanCakupan,
     mapInstance,
     setMapInstance,
   };

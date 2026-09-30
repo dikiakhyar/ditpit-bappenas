@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { consumePending, goToRegion, notifyLocation, readKode, subscribeLocation } from "@/lib/profil/location";
 import AppHeader from "@/components/app/AppHeader";
 import DataSource from "@/components/app/DataSource";
@@ -56,8 +56,8 @@ export default function ProfilView() {
   }, [sel, E, kode]);
 
   // Ganti wilayah = ubah alamat lewat History API: instan, tanpa permintaan ke server.
-  const choose = useCallback((c: string) => {
-    goToRegion(c);
+  const choose = useCallback((c: string, keepScroll = false) => {
+    goToRegion(c, { keepScroll });
   }, []);
 
   return (
@@ -102,11 +102,106 @@ function Skeleton() {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string) => void }) {
+type Choose = (c: string, keepScroll?: boolean) => void;
+
+/** Pemilih provinsi + kab/kota (dipakai di kepala halaman & di bilah yang melekat saat menggulir). */
+function RegionPicker({ E, sel, choose, compact }: { E: Engine; sel: string; choose: (c: string) => void; compact?: boolean }) {
+  const isK = E.isKawasan(sel);
+  const prov = E.provOf(sel);
+  const selects = [
+    <select key="p" aria-label="Provinsi" className={`form-select ${compact ? "min-w-0 flex-1 !py-1.5 text-[12.5px] sm:w-[200px] sm:flex-none" : "sm:w-[220px]"}`} value={prov} onChange={(e) => choose(e.target.value)}>
+      {E.has(KAWASAN) && <option value={KAWASAN}>{E.name(KAWASAN)} (seluruh kawasan)</option>}
+      {E.PROVS.map((c) => (
+        <option key={c} value={c}>
+          {E.name(c)}
+        </option>
+      ))}
+    </select>,
+    <select key="k" aria-label="Kabupaten / kota" className={`form-select ${compact ? "min-w-0 flex-1 !py-1.5 text-[12.5px] sm:w-[220px] sm:flex-none" : "sm:w-[240px]"}`} value={sel} disabled={isK} onChange={(e) => choose(e.target.value)}>
+      <option value={prov}>{isK ? "— pilih provinsi dulu —" : "Seluruh provinsi"}</option>
+      {E.kabsOf(prov).map((c) => (
+        <option key={c} value={c}>
+          {E.name(c)}
+        </option>
+      ))}
+    </select>,
+  ];
+  if (compact) return <>{selects}</>;
+  return (
+    <>
+      <label className="flex min-w-[180px] flex-1 flex-col gap-1 sm:flex-none">
+        <span className="subheader">Provinsi</span>
+        {selects[0]}
+      </label>
+      <label className="flex min-w-[180px] flex-1 flex-col gap-1 sm:flex-none">
+        <span className="subheader">Kabupaten / kota</span>
+        {selects[1]}
+      </label>
+    </>
+  );
+}
+
+function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: Choose }) {
   const isP = E.isProv(sel);
   const isK = E.isKawasan(sel);
   const prov = E.provOf(sel);
   const active = useScrollSpy(SECTIONS.map((s) => s.id), sel);
+
+  // ── pemilih wilayah yang melekat: muncul setelah pemilih di kepala halaman tergulir keluar layar ──
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const el = pickerRef.current;
+    if (!el || !("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting && e.boundingClientRect.top < 0));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Ganti wilayah dari bilah melekat → tetap di bagian yang sedang dibaca: catat posisi bagian aktif
+  // sebelum ganti, lalu kembalikan setelah isi wilayah baru tergambar (tinggi kartu bisa berbeda).
+  const anchorRef = useRef<{ id: string; top: number } | null>(null);
+  const chooseKeep = useCallback(
+    (c: string) => {
+      const el = document.getElementById(active);
+      anchorRef.current = el ? { id: active, top: el.getBoundingClientRect().top } : null;
+      choose(c, true);
+    },
+    [active, choose]
+  );
+  useLayoutEffect(() => {
+    const a = anchorRef.current;
+    anchorRef.current = null;
+    if (!a) return;
+    // Kartu wilayah baru masih berubah tinggi beberapa saat (grafik digambar ulang) dan browser ikut
+    // mengoreksi scroll → koreksi berulang tiap frame sampai posisi stabil (maks ±1,5 dtk),
+    // berhenti bila pengguna menggulir sendiri.
+    let raf = 0;
+    let stable = 0;
+    const t0 = performance.now();
+    const stop = () => cancelAnimationFrame(raf);
+    const tick = () => {
+      const el = document.getElementById(a.id);
+      if (!el) return;
+      const d = el.getBoundingClientRect().top - a.top;
+      if (Math.abs(d) > 1) {
+        window.scrollBy({ top: d });
+        stable = 0;
+      } else stable++;
+      if (stable < 20 && performance.now() - t0 < 1500) raf = requestAnimationFrame(tick);
+    };
+    tick();
+    const opts = { passive: true, once: true } as const;
+    window.addEventListener("wheel", stop, opts);
+    window.addEventListener("touchstart", stop, opts);
+    window.addEventListener("keydown", stop, opts);
+    return () => {
+      stop();
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+    };
+  }, [sel]);
 
   const lw = E.latestOf("Luas Wilayah", sel, "Luas Wilayah (km2)");
   const pl = E.latestOf("Luas Wilayah", sel, "Jumlah Pulau");
@@ -160,29 +255,8 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
               </p>
             </div>
 
-            <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
-              <label className="flex min-w-[180px] flex-1 flex-col gap-1 sm:flex-none">
-                <span className="subheader">Provinsi</span>
-                <select className="form-select sm:w-[220px]" value={prov} onChange={(e) => choose(e.target.value)}>
-                  {E.has(KAWASAN) && <option value={KAWASAN}>{E.name(KAWASAN)} (seluruh kawasan)</option>}
-                  {E.PROVS.map((c) => (
-                    <option key={c} value={c}>
-                      {E.name(c)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex min-w-[180px] flex-1 flex-col gap-1 sm:flex-none">
-                <span className="subheader">Kabupaten / kota</span>
-                <select className="form-select sm:w-[240px]" value={sel} disabled={isK} onChange={(e) => choose(e.target.value)}>
-                  <option value={prov}>{isK ? "— pilih provinsi dulu —" : "Seluruh provinsi"}</option>
-                  {E.kabsOf(prov).map((c) => (
-                    <option key={c} value={c}>
-                      {E.name(c)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div ref={pickerRef} className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
+              <RegionPicker E={E} sel={sel} choose={choose} />
               {(onMap(sel) || isK) && (
                 <Link href={`/?kode=${sel}`} className="btn">
                   <Icon name="map" className="h-4 w-4 text-primary" />
@@ -208,8 +282,27 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
         </div>
       </div>
 
-      {/* navigasi bagian — horizontal untuk layar < xl */}
-      <div className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur xl:hidden">
+      {/* bilah pemilih wilayah melayang di atas layar setelah pemilih di kepala halaman tergulir
+          (fixed, bukan di dalam alur halaman → isi tidak "meloncat" saat bilah muncul) */}
+      <div
+        className={`fixed inset-x-0 top-0 z-30 h-[52px] border-b border-border bg-surface/95 shadow-sm backdrop-blur transition-transform duration-200 ${stuck ? "translate-y-0" : "-translate-y-full"}`}
+        aria-hidden={!stuck}
+        inert={!stuck}
+      >
+        <div className="mx-auto flex h-full max-w-[1320px] items-center gap-2 px-4 sm:px-6">
+          <div className="hidden min-w-0 flex-1 sm:block">
+            <p className="truncate text-[14px] font-semibold leading-tight">{E.name(sel)}</p>
+            <p className="truncate text-[11px] text-muted">{isK ? `Gabungan ${E.PROVS.length} provinsi` : isP ? "Provinsi" : `Provinsi ${E.name(prov)}`}</p>
+          </div>
+          <RegionPicker E={E} sel={sel} choose={chooseKeep} compact />
+          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="btn shrink-0 !px-2" title="Kembali ke atas" aria-label="Kembali ke atas">
+            <Icon name="arrowUp" className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* navigasi bagian — horizontal untuk layar < xl (menempel di bawah bilah pemilih) */}
+      <div className={`sticky z-20 border-b border-border bg-surface/95 backdrop-blur transition-[top] duration-200 xl:hidden ${stuck ? "top-[52px]" : "top-0"}`}>
         <div className="no-scrollbar mx-auto flex max-w-[1320px] gap-1 overflow-x-auto px-4 sm:px-6">
           {SECTIONS.map((s) => (
             <a
@@ -241,7 +334,7 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
         <div className="mt-6 flex gap-6">
           {/* daftar isi melekat (xl+) */}
           <aside className="hidden w-52 shrink-0 xl:block">
-            <nav className="sticky top-5" aria-label="Bagian profil">
+            <nav className={`sticky transition-[top] ${stuck ? "top-[72px]" : "top-5"}`} aria-label="Bagian profil">
               <p className="subheader mb-2 px-2.5">Isi profil</p>
               <ul className="flex flex-col gap-0.5">
                 {SECTIONS.map((s) => (
@@ -266,7 +359,7 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: (c: string
               <section
                 key={sec.id}
                 id={sec.id}
-                className="scroll-mt-14 pb-8 xl:scroll-mt-5"
+                className="scroll-mt-28 pb-8 xl:scroll-mt-20"
                 // bagian di luar layar tidak digambar browser sampai mendekati layar (lebih ringan)
                 style={si > 1 ? { contentVisibility: "auto", containIntrinsicSize: "auto 1200px" } : undefined}
               >

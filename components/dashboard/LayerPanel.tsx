@@ -8,6 +8,7 @@ import { overviewPadding } from "@/lib/basemap";
 import { MAP_PROV_CODES, isKawasan, isProvCode, namaWilayah, provOfCode } from "@/lib/wilayah";
 import { kpLayerId } from "@/lib/layers";
 import { KATEGORI, entriesIn, katOf, type KatId, type KawasanEntry } from "@/lib/kawasan-prioritas";
+import { JALAN_COLOR, JALAN_LAYER_ID, fmtKm, fungsiNama, jalanScope, jalanStats } from "@/lib/jalan";
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
@@ -81,6 +82,8 @@ export default function LayerPanel() {
           ))}
         </select>
       </label>
+
+      <JalanSection />
 
       {/* ── layer: kategori kawasan prioritas ── */}
       <section className="flex flex-col gap-1.5">
@@ -289,3 +292,121 @@ function SumberKawasan() {
   );
 }
 
+
+/**
+ * Jalan Nasional: tampil/tidak, tebal garis, dan cakupan wilayah.
+ * Mengikuti wilayah terpilih (Fokus provinsi atau klik kab/kota di peta); bila kab/kota terpilih,
+ * pengguna memilih jalan di kab/kota itu saja atau di seluruh provinsinya. Statistik panjang ikut cakupan.
+ */
+function JalanSection() {
+  const { layerState, toggleLayer, selectedKode, jalan, jalanStatus, jalanWidth, setJalanWidth, jalanCakupan, setJalanCakupan } = useDashboard();
+  const on = !!layerState[JALAN_LAYER_ID]?.visible;
+  const sel = selectedKode && !isKawasan(selectedKode) ? selectedKode : null;
+  const kabSel = sel && !isProvCode(sel) ? sel : null;
+  const scope = jalanScope(selectedKode, jalanCakupan, isKawasan(selectedKode));
+  const stats = useMemo(() => (on ? jalanStats(jalan, scope) : null), [on, jalan, scope]);
+  const scopeName = scope ? namaWilayah(scope) : "seluruh wilayah (16 provinsi)";
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center gap-2.5 rounded-lg border border-transparent px-2 py-1.5 hover:border-border hover:bg-surface-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
+          <span className="h-[3px] w-5 rounded-full" style={{ background: JALAN_COLOR }} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Jalan Nasional</h3>
+          <p className="text-[11px] leading-snug text-muted">Arahkan kursor ke ruas untuk melihat namanya</p>
+        </div>
+        <Switch checked={on} onChange={() => toggleLayer(JALAN_LAYER_ID)} label="Tampilkan jalan nasional" />
+      </div>
+
+      {on && (
+        <div className="flex flex-col gap-2.5 rounded-lg border border-border p-3">
+          {/* cakupan wilayah */}
+          {kabSel ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Tampilkan di</span>
+              <div role="radiogroup" className="grid grid-cols-2 gap-0.5 rounded-lg border border-border bg-surface-2 p-0.5">
+                {(
+                  [
+                    ["kab", namaWilayah(kabSel)],
+                    ["prov", `Prov. ${namaWilayah(provOfCode(kabSel))}`],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    role="radio"
+                    aria-checked={jalanCakupan === id}
+                    onClick={() => setJalanCakupan(id)}
+                    title={label}
+                    className={`truncate rounded-md px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
+                      jalanCakupan === id ? "bg-primary text-primary-fg shadow-sm" : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[11px] leading-snug text-muted">
+              Ditampilkan di <b className="font-medium text-foreground">{scopeName}</b>.{" "}
+              {sel ? "Klik kab/kota di peta untuk mempersempit." : "Pilih provinsi di Fokus atau klik kab/kota di peta untuk mempersempit."}
+            </p>
+          )}
+
+          {/* tebal garis */}
+          <div className="flex items-center gap-2">
+            <span className="w-12 shrink-0 text-[11px] text-muted">Tebal</span>
+            <input
+              type="range"
+              min={0.5}
+              max={6}
+              step={0.25}
+              value={jalanWidth}
+              onChange={(e) => setJalanWidth(Number(e.target.value))}
+              className="dash-range h-1 flex-1"
+              aria-label="Tebal garis jalan nasional"
+            />
+            <span className="w-14 shrink-0 whitespace-nowrap text-right font-mono text-[11px] text-muted">{jalanWidth.toLocaleString("id-ID")} px</span>
+          </div>
+
+          {/* statistik */}
+          {jalanStatus === "loading" && <p className="text-[11px] text-muted">Memuat data jalan…</p>}
+          {jalanStatus === "error" && <p className="text-[11px] text-bad">Data jalan belum dapat dimuat.</p>}
+          {stats && (
+            <div className="rounded-md bg-surface-2 p-2.5">
+              <p className="text-[11px] text-muted">Panjang jalan nasional · {scopeName}</p>
+              <p className="tnum mt-0.5 text-[20px] font-bold leading-tight">
+                {fmtKm(stats.km)} <small className="text-[12px] font-medium text-muted">km</small>
+              </p>
+              <p className="text-[11px] text-ink-2">
+                {stats.ruas} ruas
+                {stats.perFungsi.length > 0 && " · "}
+                {stats.perFungsi.map((g) => `${fungsiNama(g.f)} ${fmtKm(g.km)} km`).join(" · ")}
+              </p>
+              {stats.top.length > 0 && (
+                <>
+                  <p className="mt-2 text-[10.5px] font-semibold uppercase tracking-wide text-muted">Ruas terpanjang</p>
+                  <ol className="mt-1 flex flex-col gap-0.5">
+                    {stats.top.map((r) => (
+                      <li key={r.r} className="flex items-baseline gap-2 text-[11.5px]">
+                        <span className="min-w-0 flex-1 truncate" title={`${r.n} (${fungsiNama(r.f)}, panjang ruas ${fmtKm(r.pj)} km)`}>
+                          {r.n}
+                        </span>
+                        <span className="tnum shrink-0 font-mono text-[11px] text-foreground/75">{fmtKm(r.km)} km</span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+              <p className="mt-2 text-[10px] leading-snug text-muted">
+                Panjang resmi ruas; ruas yang melintasi beberapa kab/kota dihitung sesuai porsi yang berada di wilayah ini.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}

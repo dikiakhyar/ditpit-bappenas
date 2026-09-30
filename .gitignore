@@ -47,3 +47,7 @@ next-env.d.ts
 # SHP sumber batas wilayah (±200 MB, melebihi batas GitHub) — yang di-commit hasil konversinya
 # (public/data/wilayah.topo.json, darat.geojson). Lihat DATA-MAKRO.md.
 /components/KabKotaPIT.*
+
+# GPKG sumber Jalan Nasional (±64 MB) — yang di-commit hasil konversinya public/data/jalan-nasional.geojson
+# (dibangun ulang dengan scripts/build-jalan-nasional.py bila GPKG diperbarui).
+/components/JalanNasionalPIT.gpkg
