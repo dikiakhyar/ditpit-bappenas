@@ -406,7 +406,8 @@ export default function MapContainer() {
     const cur = latest.current;
     const src = map.getSource("kabkota") as GeoJSONSource | undefined;
     if (!src) return;
-    const b = bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, cur.symb);
+    // database belum tiba → jangan gambar dulu (hindari peta abu-abu sesaat); efek memanggil ulang saat data siap
+    const b = cur.makroData ? bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, cur.symb) : null;
     bakedRef.current = b;
     setLegend(b);
     const vis = cur.makroOn && !!b ? "visible" : "none";
@@ -651,10 +652,11 @@ export default function MapContainer() {
         if (!map) return;
         // huruf label gagal dimuat bukan berarti basemap gagal
         if (/\.pbf|glyph|font/i.test(String(e?.error?.message ?? ""))) return;
+        // hanya error dari tile basemap ("base") yang berarti basemap gagal — error layer data
+        // (mis. ekspresi warna) tidak boleh menjatuhkan peta ke mode offline
+        if ((e as { sourceId?: string }).sourceId !== "base") return;
         const online = needsNetwork(latest.current.basemapId);
-        const styleFailed = !map.isStyleLoaded();
-        const tilesBlocked = online && !tileOkRef.current;
-        if ((styleFailed || tilesBlocked) && online) goFallback();
+        if (online && !tileOkRef.current) goFallback();
       });
 
       // jaring pengaman waktu: 6 detik basemap online tak menampilkan tile apa pun

@@ -106,6 +106,8 @@ export const CARDS: CardDef[] = [
   { sec: "ekonomi", t: "compose", s: "Distribusi ADHB", title: "Struktur PDRB menurut lapangan usaha", d: "Distribusi PDRB harga berlaku. Penanda emas: angka provinsi.", f: pct1, ex: ["Produk Domestik Bruto"], lab: stripSector, top: 8 },
   { sec: "ekonomi", t: "metric", s: "Kontribusi PDRB", i: "", title: "Kontribusi PDRB", d: "Kab/kota: porsi terhadap PDRB provinsi. Provinsi: porsi terhadap PDB nasional.", f: pct2, b: "up", nocmp: true },
   { sec: "ekonomi", t: "metric", s: "LPE Triwulan (yoy)", i: "Produk Domestik Bruto", title: "Pertumbuhan triwulanan (y-on-y)", d: "Pertumbuhan PDRB triwulanan dibanding triwulan yang sama tahun lalu.", f: pct2, b: "up", pf: /^T/, zero: true },
+  { sec: "ekonomi", t: "metric", s: "LPE Triwulan (qtoq)", i: "Produk Domestik Bruto", title: "Pertumbuhan triwulanan (q-to-q)", d: "Pertumbuhan PDRB dibanding triwulan sebelumnya. Wajar naik-turun mengikuti musim.", f: pct2, b: "up", pf: /^T/, zero: true },
+  { sec: "ekonomi", t: "metric", s: "LPE Triwulan (ctoc)", i: "Produk Domestik Bruto", title: "Pertumbuhan kumulatif (c-to-c)", d: "Pertumbuhan PDRB kumulatif sejak awal tahun dibanding periode yang sama tahun lalu.", f: pct2, b: "up", pf: /^T/, zero: true },
   { sec: "ekonomi", t: "metric", s: "NTP", i: "Petani", title: "Nilai Tukar Petani (NTP)", d: "2018 = 100. Di atas 100: harga yang diterima petani naik lebih cepat daripada harga yang dibayar.", f: idx2, b: "up" },
   // ── investasi
   { sec: "investasi", t: "metric", s: "Realisasi Investasi", i: "Realisasi Investasi (Juta Rupiah)", title: "Realisasi investasi (PMA + PMDN)", d: "Nilai realisasi investasi per tahun.", f: { k: 0.001, rp: true }, b: "up", g: true, lvl: true },

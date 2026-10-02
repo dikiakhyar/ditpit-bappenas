@@ -516,6 +516,8 @@ export function legendClasses(sc: NumericScale, min: number | null, max: number 
 
 /** Ekspresi MapLibre fill-color dari skala kelas, baca properti "__v". */
 export function stepColorExpression(sc: NumericScale, nodata = NODATA): unknown {
+  // tanpa kelas sama sekali (belum ada angka) → semua "tidak ada data"; warna undefined ditolak MapLibre
+  if (sc.colors.length === 0) return nodata;
   if (sc.breaks.length === 0) return ["case", ["has", "__v"], sc.colors[0], nodata];
   const step: unknown[] = ["step", ["get", "__v"], sc.colors[0]];
   sc.breaks.forEach((b, i) => step.push(b, sc.colors[i + 1]));
