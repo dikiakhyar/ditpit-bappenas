@@ -788,42 +788,66 @@ export default function MapContainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basemapId, theme]);
 
-  // CATATAN: efek-efek di bawah cukup mengecek source/layer kita sudah terpasang (dipasang saat style.load).
-  // Jangan pakai map.isStyleLoaded(): nilainya false selama tile basemap masih dimuat, sehingga data yang
-  // tiba pada saat itu (batas wilayah, database) terlewat dan peta kosong sampai basemap diganti.
+  // Terapkan perubahan ke peta. map.isStyleLoaded() bernilai false selama tile basemap (atau data) masih
+  // dimuat; bila begitu perubahan TIDAK dibuang, melainkan ditunda sampai peta "idle" — basemap tampil
+  // dulu, lalu choropleth / batas / jalan / kawasan menyusul sendiri tanpa perlu ganti basemap.
+  // kunci = jenis perubahan → tiap jenis perubahan hanya diterapkan sekali walau tertunda berkali-kali
+  const pendingRef = useRef(new Map<string, (m: MlMap) => void>());
+  const pendingTimerRef = useRef<number | undefined>(undefined);
+  function whenReady(map: MlMap, key: string, fn: (m: MlMap) => void) {
+    if (map.isStyleLoaded()) {
+      fn(map);
+      return;
+    }
+    const first = pendingRef.current.size === 0;
+    pendingRef.current.set(key, fn);
+    if (!first) return;
+    const flush = () => {
+      window.clearTimeout(pendingTimerRef.current);
+      map.off("idle", flush);
+      const fns = [...pendingRef.current.values()];
+      pendingRef.current.clear();
+      if (mapRef.current !== map) return; // peta sudah dibongkar
+      fns.forEach((f) => f(map)); // tiap fungsi mengecek sendiri source/layer-nya sudah ada
+    };
+    map.on("idle", flush);
+    // jaring pengaman: bila "idle" tak kunjung tiba (tile lambat), tetap terapkan
+    pendingTimerRef.current = window.setTimeout(flush, 8000);
+  }
+  useEffect(() => () => window.clearTimeout(pendingTimerRef.current), []);
 
   // perubahan pilihan makro / data / opacity → terapkan ulang choropleth
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (map.getSource("kabkota")) applyChoropleth(map);
+    whenReady(map, "choropleth", applyChoropleth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [makroSel, makroOn, makroOpacity, kabkota, makroData, symb]);
 
   // label nama wilayah: dinyalakan / ukuran / warna berubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.getLayer("label-kab")) applyLabels(map);
+    if (map) whenReady(map, "labels", applyLabels);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labels, labelGeo]);
 
   // batas administrasi: data dimuat / garis dinyalakan-dimatikan / tebal & warna diubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.getLayer("prov-outline")) applyBoundaries(map);
+    if (map) whenReady(map, "boundaries", applyBoundaries);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kabkota, provinsi, layerState, symb.border]);
 
   // Jalan Nasional: data dimuat / dinyalakan / tebal / cakupan wilayah berubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.getSource("jalan")) applyJalan(map);
+    if (map) whenReady(map, "jalan", applyJalan);
   }, [jalan, jalanOn, jalanWidth, jalanScp]);
 
   // Kawasan Prioritas: data dimuat / kategori dinyalakan-dimatikan
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.getSource("kp")) applyKawasan(map);
+    if (map) whenReady(map, "kawasan", applyKawasan);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kpGeo]);
 
@@ -847,7 +871,7 @@ export default function MapContainer() {
       if (selectedKode && !fromClickRef.current) flyToSelection(map, selectedKode);
       fromClickRef.current = false;
     };
-    if (map.getLayer("makro-selected")) apply();
+    if (map.isStyleLoaded() && map.getLayer("makro-selected")) apply();
     else map.once("idle", apply);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKode, kabkota, status]);
@@ -855,7 +879,7 @@ export default function MapContainer() {
   // ganti mode fokus (abu-abu / sembunyikan) → cukup ganti filter & gaya, tanpa terbang ulang
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.getLayer("makro-fill")) applyFocus(map);
+    if (map) whenReady(map, "focus", applyFocus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMode]);
 
