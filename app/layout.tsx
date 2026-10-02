@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { ThemeProvider } from "@/lib/theme";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 // Inter (OFL) disimpan lokal di app/fonts — tidak perlu Google Fonts saat build
@@ -33,6 +34,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full">
         <ThemeProvider>{children}</ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
