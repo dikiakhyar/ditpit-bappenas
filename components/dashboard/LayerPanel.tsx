@@ -277,7 +277,7 @@ function SumberKawasan() {
     <div className={`rounded-md border px-3 py-2 text-[11px] leading-snug ${live ? "border-border bg-surface-2 text-ink-2" : "border-warn/30 bg-warn-lt text-warn"}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${live ? "bg-good" : "bg-warn"}`} />
-        <span className="font-medium">{live ? "Daftar kawasan: Google Spreadsheet" : "Daftar kawasan: salinan lokal"}</span>
+        <span className="font-medium">{live ? "Daftar kawasan: RPJMN 2025–2029" : "Daftar kawasan: salinan lokal"}</span>
         {live && <span className="text-muted">· dibaca {time(src.fetchedAt)}</span>}
       </div>
       {kawasan.unmatched.length > 0 && (

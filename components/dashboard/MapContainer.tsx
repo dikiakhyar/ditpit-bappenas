@@ -788,38 +788,42 @@ export default function MapContainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basemapId, theme]);
 
+  // CATATAN: efek-efek di bawah cukup mengecek source/layer kita sudah terpasang (dipasang saat style.load).
+  // Jangan pakai map.isStyleLoaded(): nilainya false selama tile basemap masih dimuat, sehingga data yang
+  // tiba pada saat itu (batas wilayah, database) terlewat dan peta kosong sampai basemap diganti.
+
   // perubahan pilihan makro / data / opacity → terapkan ulang choropleth
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (map.isStyleLoaded() && map.getSource("kabkota")) applyChoropleth(map);
+    if (map.getSource("kabkota")) applyChoropleth(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [makroSel, makroOn, makroOpacity, kabkota, makroData, symb]);
 
   // label nama wilayah: dinyalakan / ukuran / warna berubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.isStyleLoaded() && map.getLayer("label-kab")) applyLabels(map);
+    if (map?.getLayer("label-kab")) applyLabels(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labels, labelGeo]);
 
   // batas administrasi: data dimuat / garis dinyalakan-dimatikan / tebal & warna diubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.isStyleLoaded() && map.getLayer("prov-outline")) applyBoundaries(map);
+    if (map?.getLayer("prov-outline")) applyBoundaries(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kabkota, provinsi, layerState, symb.border]);
 
   // Jalan Nasional: data dimuat / dinyalakan / tebal / cakupan wilayah berubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.isStyleLoaded() && map.getSource("jalan")) applyJalan(map);
+    if (map?.getSource("jalan")) applyJalan(map);
   }, [jalan, jalanOn, jalanWidth, jalanScp]);
 
   // Kawasan Prioritas: data dimuat / kategori dinyalakan-dimatikan
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.isStyleLoaded() && map.getSource("kp")) applyKawasan(map);
+    if (map?.getSource("kp")) applyKawasan(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kpGeo]);
 
@@ -843,7 +847,7 @@ export default function MapContainer() {
       if (selectedKode && !fromClickRef.current) flyToSelection(map, selectedKode);
       fromClickRef.current = false;
     };
-    if (map.isStyleLoaded() && map.getLayer("makro-selected")) apply();
+    if (map.getLayer("makro-selected")) apply();
     else map.once("idle", apply);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKode, kabkota, status]);
@@ -851,7 +855,7 @@ export default function MapContainer() {
   // ganti mode fokus (abu-abu / sembunyikan) → cukup ganti filter & gaya, tanpa terbang ulang
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.isStyleLoaded() && map.getLayer("makro-fill")) applyFocus(map);
+    if (map?.getLayer("makro-fill")) applyFocus(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMode]);
 
