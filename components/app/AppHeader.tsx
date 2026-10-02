@@ -14,12 +14,11 @@ const NAV = [
   { href: "/profil", label: "Profil Daerah", icon: "report" },
 ];
 
-/** Header bersama semua halaman — pola navbar Tabler: merek di kiri,
- *  tautan halaman dengan garis aktif di bawah, pencarian wilayah, tema. */
-export default function AppHeader({ leading }: { leading?: ReactNode }) {
+/** Logika tautan halaman, dipakai header utama dan bilah ringkas yang melekat saat menggulir. */
+function usePageNav() {
   const path = usePathname();
   const router = useRouter();
-  const { theme, toggleTheme } = useTheme();
+  const isOn = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   // Menu "Profil Daerah" membuka wilayah terakhir yang dipilih (disimpan di browser).
   const openNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -33,6 +32,51 @@ export default function AppHeader({ leading }: { leading?: ReactNode }) {
     if (last) openProfil(router, last);
     else router.push("/profil");
   };
+
+  return { isOn, openNav };
+}
+
+/** Merek + tautan halaman versi ringkas untuk bilah yang melekat saat halaman digulir:
+ *  ikon halaman saja di layar sempit, + logo mulai sm, + label mulai lg, + nama mulai xl. */
+export function CompactNav() {
+  const { isOn, openNav } = usePageNav();
+  return (
+    <div className="flex h-full shrink-0 items-stretch">
+      <Link href="/" title="KASUARI Bappenas" className="mr-1 hidden items-center gap-2 sm:flex">
+        <Image src="/logo.png" alt="Logo Bappenas" width={26} height={26} className="h-6 w-6 object-contain" />
+        <span className="hidden text-[13px] font-semibold tracking-tight xl:block">KASUARI</span>
+      </Link>
+      <nav className="flex items-stretch" aria-label="Halaman">
+        {NAV.map((n) => {
+          const on = isOn(n.href);
+          return (
+            <Link
+              key={n.href}
+              href={n.href}
+              onClick={(e) => openNav(e, n.href)}
+              aria-current={on ? "page" : undefined}
+              aria-label={n.label}
+              title={n.label}
+              className={`relative flex items-center gap-1.5 px-2 text-[13px] font-medium transition-colors lg:px-2.5 ${
+                on ? "text-primary" : "text-ink-2 hover:text-foreground"
+              }`}
+            >
+              <Icon name={n.icon} className="h-[18px] w-[18px]" />
+              <span className="hidden lg:inline">{n.label}</span>
+              {on && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-t bg-primary" />}
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+/** Header bersama semua halaman — pola navbar Tabler: merek di kiri,
+ *  tautan halaman dengan garis aktif di bawah, pencarian wilayah, tema. */
+export default function AppHeader({ leading }: { leading?: ReactNode }) {
+  const { isOn, openNav } = usePageNav();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="z-30 shrink-0 border-b border-border bg-surface">
@@ -48,7 +92,7 @@ export default function AppHeader({ leading }: { leading?: ReactNode }) {
 
         <nav className="ml-1 hidden h-14 items-stretch md:flex" aria-label="Halaman">
           {NAV.map((n) => {
-            const on = n.href === "/" ? path === "/" : path.startsWith(n.href);
+            const on = isOn(n.href);
             return (
               <Link
                 key={n.href}
@@ -78,7 +122,7 @@ export default function AppHeader({ leading }: { leading?: ReactNode }) {
       {/* navigasi halaman untuk layar kecil */}
       <nav className="flex border-t border-border md:hidden" aria-label="Halaman">
         {NAV.map((n) => {
-          const on = n.href === "/" ? path === "/" : path.startsWith(n.href);
+          const on = isOn(n.href);
           return (
             <Link
               key={n.href}

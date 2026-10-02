@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { consumePending, goToRegion, notifyLocation, readKode, subscribeLocation } from "@/lib/profil/location";
-import AppHeader from "@/components/app/AppHeader";
+import AppHeader, { CompactNav } from "@/components/app/AppHeader";
 import DataSource from "@/components/app/DataSource";
 import { Icon } from "@/components/ui/icons";
 import { useProfil } from "@/lib/profil/useProfil";
@@ -282,7 +282,7 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: Choose }) 
         </div>
       </div>
 
-      {/* bilah pemilih wilayah melayang di atas layar setelah pemilih di kepala halaman tergulir
+      {/* bilah navigasi + pemilih wilayah melayang di atas layar setelah pemilih di kepala halaman tergulir
           (fixed, bukan di dalam alur halaman → isi tidak "meloncat" saat bilah muncul) */}
       <div
         className={`fixed inset-x-0 top-0 z-30 h-[52px] border-b border-border bg-surface/95 shadow-sm backdrop-blur transition-transform duration-200 ${stuck ? "translate-y-0" : "-translate-y-full"}`}
@@ -290,7 +290,10 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: Choose }) 
         inert={!stuck}
       >
         <div className="mx-auto flex h-full max-w-[1320px] items-center gap-2 px-4 sm:px-6">
-          <div className="hidden min-w-0 flex-1 sm:block">
+          {/* merek + pindah halaman tetap terjangkau tanpa menggulir ke atas */}
+          <CompactNav />
+          <span className="hidden h-6 w-px shrink-0 bg-border md:block" aria-hidden />
+          <div className="hidden min-w-0 flex-1 md:block">
             <p className="truncate text-[14px] font-semibold leading-tight">{E.name(sel)}</p>
             <p className="truncate text-[11px] text-muted">{isK ? `Gabungan ${E.PROVS.length} provinsi` : isP ? "Provinsi" : `Provinsi ${E.name(prov)}`}</p>
           </div>
