@@ -100,11 +100,12 @@ export default function MapContainer() {
   const fromClickRef = useRef(false); // true bila pilihan berasal dari klik peta (jangan terbang)
 
   const bakedRef = useRef<Baked | null>(null);
+  const bakeMemoRef = useRef<{ key: unknown[]; b: Baked | null } | null>(null);
+  const coordElRef = useRef<HTMLSpanElement>(null);
   const jalanHoverRef = useRef<string | number | null>(null);
   const triedFallbackRef = useRef(false);
   const tileOkRef = useRef(false); // true bila ≥1 tile basemap online berhasil dimuat
 
-  const [coord, setCoord] = useState({ lng: 124, lat: -5 });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [usingFallback, setUsingFallback] = useState(false);
   const [legend, setLegend] = useState<Baked | null>(null);
@@ -406,18 +407,26 @@ export default function MapContainer() {
     const cur = latest.current;
     const src = map.getSource("kabkota") as GeoJSONSource | undefined;
     if (!src) return;
+    // Hitung ulang hanya bila masukannya berubah (geometri, database, indikator, tahun, simbologi).
+    // Mengubah transparansi / menyalakan-mematikan cukup ganti gaya — tanpa mengirim ulang ±3 MB geometri.
+    const key = [cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, cur.symb];
+    const memo = bakeMemoRef.current;
+    const same = !!memo && memo.key.every((v, i) => v === key[i]);
     // database belum tiba → jangan gambar dulu (hindari peta abu-abu sesaat); efek memanggil ulang saat data siap
-    const b = cur.makroData ? bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, cur.symb) : null;
+    const b = same ? memo.b : cur.makroData ? bake(cur.kabkota, cur.makroData, cur.makroSel.indId, cur.makroSel.year, cur.symb) : null;
+    bakeMemoRef.current = { key, b };
     bakedRef.current = b;
     setLegend(b);
     const vis = cur.makroOn && !!b ? "visible" : "none";
     if (map.getLayer("makro-fill")) map.setLayoutProperty("makro-fill", "visibility", vis);
     if (map.getLayer("makro-outline")) map.setLayoutProperty("makro-outline", "visibility", vis);
-    if (!b) {
-      src.setData(EMPTY_FC as never);
-      return;
+    // tanda pada objek source: source baru (setelah ganti basemap) selalu diisi ulang
+    const tagged = src as unknown as { __b?: Baked | null };
+    if (tagged.__b !== b) {
+      src.setData((b ? b.geo : EMPTY_FC) as never);
+      tagged.__b = b;
     }
-    src.setData(b.geo as never);
+    if (!b) return;
     applyBorder(map);
     applyFocus(map);
   }
@@ -612,7 +621,11 @@ export default function MapContainer() {
         maxWidth: "260px",
       });
 
-      map.on("mousemove", (e) => setCoord({ lng: e.lngLat.lng, lat: e.lngLat.lat }));
+      // koordinat kursor ditulis langsung ke elemennya — tanpa state, jadi gerakan mouse tidak
+      // memicu render ulang seluruh komponen peta
+      map.on("mousemove", (e) => {
+        if (coordElRef.current) coordElRef.current.textContent = `${e.lngLat.lat.toFixed(4)}°, ${e.lngLat.lng.toFixed(4)}°`;
+      });
 
       // pindah ke basemap offline "Wilayah" bila basemap online gagal.
       const goFallback = () => {
@@ -790,66 +803,43 @@ export default function MapContainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basemapId, theme]);
 
-  // Terapkan perubahan ke peta. map.isStyleLoaded() bernilai false selama tile basemap (atau data) masih
-  // dimuat; bila begitu perubahan TIDAK dibuang, melainkan ditunda sampai peta "idle" — basemap tampil
-  // dulu, lalu choropleth / batas / jalan / kawasan menyusul sendiri tanpa perlu ganti basemap.
-  // kunci = jenis perubahan → tiap jenis perubahan hanya diterapkan sekali walau tertunda berkali-kali
-  const pendingRef = useRef(new Map<string, (m: MlMap) => void>());
-  const pendingTimerRef = useRef<number | undefined>(undefined);
-  function whenReady(map: MlMap, key: string, fn: (m: MlMap) => void) {
-    if (map.isStyleLoaded()) {
-      fn(map);
-      return;
-    }
-    const first = pendingRef.current.size === 0;
-    pendingRef.current.set(key, fn);
-    if (!first) return;
-    const flush = () => {
-      window.clearTimeout(pendingTimerRef.current);
-      map.off("idle", flush);
-      const fns = [...pendingRef.current.values()];
-      pendingRef.current.clear();
-      if (mapRef.current !== map) return; // peta sudah dibongkar
-      fns.forEach((f) => f(map)); // tiap fungsi mengecek sendiri source/layer-nya sudah ada
-    };
-    map.on("idle", flush);
-    // jaring pengaman: bila "idle" tak kunjung tiba (tile lambat), tetap terapkan
-    pendingTimerRef.current = window.setTimeout(flush, 8000);
-  }
-  useEffect(() => () => window.clearTimeout(pendingTimerRef.current), []);
+  // Terapkan perubahan ke peta SEKETIKA. Tiap fungsi apply* mengecek sendiri source/layer-nya sudah
+  // terpasang (dipasang saat style.load, yang juga menerapkan ulang semuanya), jadi tidak perlu menunggu
+  // basemap selesai dimuat. Jangan disaring dengan map.isStyleLoaded(): nilainya false selama tile
+  // basemap masih diunduh, sehingga perubahan terbuang/tertunda dan layer terasa lambat muncul.
 
   // perubahan pilihan makro / data / opacity → terapkan ulang choropleth
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    whenReady(map, "choropleth", applyChoropleth);
+    applyChoropleth(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [makroSel, makroOn, makroOpacity, kabkota, makroData, symb]);
 
   // label nama wilayah: dinyalakan / ukuran / warna berubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map) whenReady(map, "labels", applyLabels);
+    if (map) applyLabels(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labels, labelGeo]);
 
   // batas administrasi: data dimuat / garis dinyalakan-dimatikan / tebal & warna diubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map) whenReady(map, "boundaries", applyBoundaries);
+    if (map) applyBoundaries(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kabkota, provinsi, layerState, symb.border]);
 
   // Jalan Nasional: data dimuat / dinyalakan / tebal / cakupan wilayah berubah
   useEffect(() => {
     const map = mapRef.current;
-    if (map) whenReady(map, "jalan", applyJalan);
+    if (map) applyJalan(map);
   }, [jalan, jalanOn, jalanWidth, jalanScp]);
 
   // Kawasan Prioritas: data dimuat / kategori dinyalakan-dimatikan
   useEffect(() => {
     const map = mapRef.current;
-    if (map) whenReady(map, "kawasan", applyKawasan);
+    if (map) applyKawasan(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kpGeo]);
 
@@ -881,7 +871,7 @@ export default function MapContainer() {
   // ganti mode fokus (abu-abu / sembunyikan) → cukup ganti filter & gaya, tanpa terbang ulang
   useEffect(() => {
     const map = mapRef.current;
-    if (map) whenReady(map, "focus", applyFocus);
+    if (map) applyFocus(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMode]);
 
@@ -943,7 +933,7 @@ export default function MapContainer() {
       {/* HUD koordinat */}
       <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 map-float px-3 py-1.5 font-mono text-[11px] text-ink-2">
         <Icon name="crosshair" className="h-3.5 w-3.5" />
-        <span>{coord.lat.toFixed(4)}°, {coord.lng.toFixed(4)}°</span>
+        <span ref={coordElRef}>-5.0000°, 124.0000°</span>
         <span className="opacity-30">|</span>
         <span>{fb?.label ?? ""}</span>
         <span className="opacity-30">|</span>

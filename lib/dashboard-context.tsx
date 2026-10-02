@@ -2,9 +2,11 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -245,18 +247,29 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [jalanWidth, setJalanWidth] = useState(JALAN_DEFAULT_WIDTH);
   const [jalanCakupan, setJalanCakupan] = useState<JalanCakupan>("kab");
   const jalanOn = !!layerState[JALAN_LAYER_ID]?.visible;
+  // satu unduhan dipakai bersama oleh pra-muat & saat layer dinyalakan
+  const jalanReq = useRef<Promise<JalanFC> | null>(null);
+  const loadJalan = useCallback(
+    () =>
+      (jalanReq.current ??= fetch(JALAN_URL)
+        .then((r) => (r.ok ? (r.json() as Promise<JalanFC>) : Promise.reject(new Error(String(r.status)))))
+        .catch((e) => {
+          jalanReq.current = null;
+          throw e;
+        })),
+    []
+  );
   useEffect(() => {
     if (!jalanOn || jalanStatus !== "idle") return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setJalanStatus("loading");
-    fetch(JALAN_URL)
-      .then((r) => (r.ok ? (r.json() as Promise<JalanFC>) : Promise.reject(new Error(String(r.status)))))
+    loadJalan()
       .then((fc) => {
         setJalan(fc);
         setJalanStatus("ready");
       })
       .catch(() => setJalanStatus("error"));
-  }, [jalanOn, jalanStatus]);
+  }, [jalanOn, jalanStatus, loadJalan]);
 
   const labelGeo = useMemo(
     () =>
@@ -275,6 +288,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const makroSel = useMemo(() => normalizeSel(rawSel, makroCatalog), [rawSel, makroCatalog]);
   const dataStatus: "loading" | "ready" | "error" = geoError || dbError ? "error" : makroData ? "ready" : "loading";
+
+  // Pra-muat data Jalan Nasional (±1,7 MB) diam-diam beberapa detik setelah peta siap, supaya saat
+  // layernya dinyalakan garis langsung tampil. Dilewati bila pengguna menyalakan mode hemat data.
+  useEffect(() => {
+    if (dataStatus !== "ready") return;
+    if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+    const t = window.setTimeout(() => void loadJalan().catch(() => {}), 2500);
+    return () => window.clearTimeout(t);
+  }, [dataStatus, loadJalan]);
 
   const setMakroCategory = (catId: string) =>
     setMakroSel(() => {

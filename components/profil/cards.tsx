@@ -37,11 +37,16 @@ export function Card({
   );
 }
 
-function Src({ E, sheet, agg }: { E: Engine; sheet: string; agg?: boolean }) {
+function Src({ E, sheet, agg, more }: { E: Engine; sheet: string; agg?: boolean; more?: string[] }) {
   const m = E.meta(sheet);
   return (
     <>
       Sumber: {m.s || "Database PIT"} · {agg ? "agregasi dari " : ""}sheet <span className="font-mono">{sheet}</span>
+      {more?.map((s) => (
+        <span key={s}>
+          , <span className="font-mono">{s}</span>
+        </span>
+      ))}
     </>
   );
 }
@@ -286,7 +291,7 @@ export function MultiCard({ E, cd, sel }: { E: Engine; cd: MultiDef; sel: string
   if (!rows.some((r) => isN(r.v))) return null;
   const per = rows.find((r) => r.per)!.per!;
   return (
-    <Card title={cd.title} desc={cd.d} src={<Src E={E} sheet={cd.srcs[0][0]} />}>
+    <Card title={cd.title} desc={cd.d} src={<Src E={E} sheet={cd.srcs[0][0]} more={[...new Set(cd.srcs.map((x) => x[0]))].slice(1)} />}>
       {fb && <FbNote E={E} code={code} />}
       <Legend items={[{ name: E.name(code), color: "var(--s1)", kind: "sq" }]} lead={<span className="font-mono text-muted">{per}</span>} />
       <BarsChart rows={rows} f={cd.f} per={per} selName={E.name(code)} aria={cd.title} />

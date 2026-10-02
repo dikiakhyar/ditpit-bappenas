@@ -10,6 +10,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -32,6 +33,8 @@ export function TipProvider({ children }: { children: ReactNode }) {
 
   const show = useCallback((c: ReactNode, e: Pt) => setTip({ c, x: e.clientX, y: e.clientY }), []);
   const hide = useCallback(() => setTip(null), []);
+  // objek tetap → grafik-grafik lain tidak ikut digambar ulang tiap tooltip muncul/bergeser
+  const api = useMemo(() => ({ show, hide }), [show, hide]);
 
   useLayoutEffect(() => {
     if (!tip || !ref.current) return;
@@ -50,7 +53,7 @@ export function TipProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <TipCtx.Provider value={{ show, hide }}>
+    <TipCtx.Provider value={api}>
       {children}
       {tip && (
         <div

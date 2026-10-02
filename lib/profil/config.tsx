@@ -128,6 +128,7 @@ export const CARDS: CardDef[] = [
   { sec: "kesehatan", t: "metric", s: "Kelengkapan Nakes Puskes", i: "% Puskesmas Lengkap", title: "Puskesmas dengan 9 jenis nakes lengkap", d: "Persentase puskesmas dengan sembilan jenis tenaga kesehatan lengkap.", f: x100, b: "up" },
   { sec: "kesehatan", t: "compose", s: "Nakes Prioritas", title: "Tenaga kesehatan prioritas", d: "Jumlah tenaga kesehatan prioritas di RS dan puskesmas (orang).", f: { d: 0 }, lab: (s) => ({ ATLM: "Ahli teknologi lab. medik", BIDAN: "Bidan", DOKTER: "Dokter", "DOKTER GIGI": "Dokter gigi", FARMASI: "Farmasi", GIZI: "Nutrisionis", KESLING: "Kesehatan lingkungan", KESMAS: "Kesehatan masyarakat", PERAWAT: "Perawat" } as Record<string, string>)[s] || s, nocmp: true },
   { sec: "kesehatan", t: "metric", s: "Anak Terimunisasi Lengkap", i: "", title: "Imunisasi dasar lengkap", d: "Anak umur 12–23 bulan yang menerima imunisasi dasar lengkap.", f: pct2, b: "up" },
+  { sec: "kesehatan", t: "metric", s: "Anak Terimunisasi Campak", i: "", title: "Imunisasi campak balita", d: "Balita (0–59 bulan) yang pernah mendapat imunisasi campak.", f: pct2, b: "up" },
   {
     sec: "kesehatan", t: "compose", s: "Kelas RS", title: "Rumah sakit menurut kelas", d: "Jumlah rumah sakit menurut kelas (unit).", f: { d: 0 },
     order: ["Kelas A (Unit)", "Kelas B (Unit)", "Kelas C (Unit)", "Kelas D dan Kelas D Pratama (Unit)", "Belum Ditetapkan Kelas (Unit)"],
@@ -172,6 +173,10 @@ export const CARDS: CardDef[] = [
   },
   { sec: "pendidikan", t: "compose", s: "Penyelesaian Pendidikan", title: "Tingkat penyelesaian pendidikan", d: "Per jenjang, persen.", f: pct1, order: ["SD / Sederajat", "SMP / Sederajat", "SMA / Sederajat"] },
   { sec: "pendidikan", t: "metric", s: "Melek Aksara (>15)", i: "", title: "Angka melek aksara 15+", d: "Penduduk usia 15 tahun ke atas yang dapat membaca dan menulis.", f: pct2, b: "up" },
+  { sec: "pendidikan", t: "multi", title: "Melek aksara menurut kelompok umur", d: "Penduduk yang dapat membaca dan menulis, persen.", f: pct2, srcs: [["Melek Aksara (15-24)", "", "15–24 tahun"], ["Melek Aksara (15-59)", "", "15–59 tahun"]] },
+  { sec: "pendidikan", t: "multi", title: "Buta aksara", d: "Persen penduduk yang tidak dapat membaca dan menulis: menurut umur (15 tahun ke atas) dan jenis kelamin (10 tahun ke atas).", f: pct2, srcs: [["Buta Aksara (Umur)", "15-44", "Umur 15–44 tahun"], ["Buta Aksara (Umur)", "45+", "Umur 45 tahun ke atas"], ["Buta Aksara (Jenis Kelamin)", "Laki-Laki", "Laki-laki"], ["Buta Aksara (Jenis Kelamin)", "Perempuan", "Perempuan"]] },
+  { sec: "pendidikan", t: "compose", s: "Rombel", title: "Rombongan belajar per jenjang", d: "Jumlah rombongan belajar, tahun ajaran 2023/2024 (unit).", f: { d: 0 }, order: ["SD", "SMP", "SMA", "SMK"], nocmp: true },
+  { sec: "pendidikan", t: "compose", s: "Desa dengan Fasilitas Sekolah", title: "Desa yang memiliki sekolah", d: "Jumlah desa/kelurahan yang memiliki fasilitas sekolah, menurut jenjang.", f: { d: 0 }, order: ["SD", "SMP", "SMU", "SMK", "Perguruan Tinggi"], lab: (s) => (s === "SMU" ? "SMA" : s), nocmp: true },
   { sec: "pendidikan", t: "compose", s: "Jangkau Fasdik", title: "Keterjangkauan fasilitas pendidikan", d: "Indeks keterjangkauan per jenjang (persen).", f: pct1, order: ["SD", "SMP", "SMA", "SMK"].map((j) => "Indeks Keterjangkauan ke Fasilitas Pendidikan " + j + " (%)"), lab: (s) => s.replace("Indeks Keterjangkauan ke Fasilitas Pendidikan ", "").replace(" (%)", "") },
   // ── infrastruktur
   { sec: "infra", t: "metric", s: "RT Air Minum Layak", i: "", title: "Rumah tangga dengan air minum layak", d: "Persentase rumah tangga dengan akses sumber air minum layak.", f: pct2, b: "up" },
@@ -179,7 +184,9 @@ export const CARDS: CardDef[] = [
   { sec: "infra", t: "metric", s: "RT Hunian Layak", i: "", title: "Rumah tangga dengan hunian layak", d: "Persentase rumah tangga dengan akses hunian layak.", f: pct2, b: "up" },
   { sec: "infra", t: "compose", s: "RT BABS", title: "Buang air besar sembarangan (BABS)", d: "Persentase rumah tangga yang masih BAB di tempat terbuka.", f: pct2, order: ["Perkotaan", "Perdesaan", "Perkotaan+Perdesaan"], lab: (s) => (s === "Perkotaan+Perdesaan" ? "Total" : s) },
   { sec: "infra", t: "metric", s: "RT Penerangan Listrik PLN", i: "", title: "Rumah tangga berlistrik PLN", d: "Sumber penerangan utama listrik PLN.", f: pct2, b: "up" },
+  { sec: "infra", t: "metric", s: "RT Penerangan Listrik", i: "", title: "Rumah tangga berpenerangan listrik", d: "Rumah tangga dengan sumber penerangan utama listrik.", f: pct2, b: "up" },
   { sec: "infra", t: "metric", s: "Kapasitas Pembangkit Listrik", i: "", title: "Kapasitas pembangkit listrik", d: "Kapasitas terpasang (MW).", f: { d: 0, suf: " MW", du: " MW" }, b: "up", lvl: true },
+  { sec: "infra", t: "multi", title: "Listrik dibangkitkan dan didistribusikan", d: "Tenaga listrik yang dibangkitkan dan yang didistribusikan per tahun (GWh).", f: { d: 0, suf: " GWh" }, srcs: [["Tenaga Listrik Dibangkitkan", "", "Dibangkitkan"], ["Listrik Terdistribusi", "", "Didistribusikan"]] },
   { sec: "infra", t: "compose", s: "Jangkauan 4G", title: "Jangkauan sinyal 4G", d: "Persentase kawasan permukiman dan wilayah yang terjangkau 4G.", f: pct1, lab: (s) => s.replace("(%)", "") },
   { sec: "infra", t: "multi", title: "Kemantapan jalan", d: "Persentase panjang jalan kondisi mantap (baik + sedang) menurut status jalan.", f: pct1, srcs: [["Jalan Nasional", "", "Jalan nasional"], ["Jalan Provinsi", "", "Jalan provinsi"], ["Jalan KabKota", "", "Jalan kab/kota"]] },
   {

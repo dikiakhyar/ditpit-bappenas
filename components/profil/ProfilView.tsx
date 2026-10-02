@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { consumePending, goToRegion, notifyLocation, readKode, subscribeLocation } from "@/lib/profil/location";
 import AppHeader, { CompactNav } from "@/components/app/AppHeader";
 import DataSource from "@/components/app/DataSource";
@@ -14,7 +14,7 @@ import { nf } from "@/lib/profil/format";
 import { onMap } from "@/lib/wilayah";
 import { KAWASAN } from "@/lib/profil/kawasan";
 import { TipProvider } from "./charts";
-import { Tiles } from "./Tiles";
+import { Tiles as TilesRaw } from "./Tiles";
 import { ApbdCard, CommodCard, ComposeCard, DesaCard, IppCard, MetricCard, MultiCard, StackCard, WisataCard } from "./cards";
 
 const LS_KEY = "pdit-sel";
@@ -412,7 +412,10 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: Choose }) 
   );
 }
 
-function CardSwitch({ E, cd, sel }: { E: Engine; cd: CardDef; sel: string }) {
+// memo: kartu hanya dihitung ulang bila data/wilayahnya berubah — bukan tiap kali bagian aktif di
+// daftar isi berganti atau bilah atas muncul/hilang saat menggulir
+const Tiles = memo(TilesRaw);
+const CardSwitch = memo(function CardSwitch({ E, cd, sel }: { E: Engine; cd: CardDef; sel: string }) {
   switch (cd.t) {
     case "metric":
       return <MetricCard E={E} cd={cd} sel={sel} />;
@@ -433,7 +436,7 @@ function CardSwitch({ E, cd, sel }: { E: Engine; cd: CardDef; sel: string }) {
     case "wisata":
       return <WisataCard E={E} sel={sel} />;
   }
-}
+});
 
 function useScrollSpy(ids: string[], dep: string) {
   const [active, setActive] = useState(ids[0]);

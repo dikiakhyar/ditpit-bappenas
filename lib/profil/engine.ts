@@ -194,7 +194,9 @@ export type Engine = ReturnType<typeof createEngine>;
 let cache: Promise<Engine> | null = null;
 async function fetchData(): Promise<ProfilData> {
   try {
-    const r = await fetch("/api/database", { cache: "no-store" });
+    // "no-cache" = selalu tanya server, tapi bila data belum berubah (ETag sama → 304) pakai salinan
+    // browser — tidak mengunduh ulang ±0,7 MB tiap halaman dibuka. Data tetap selalu yang terbaru.
+    const r = await fetch("/api/database", { cache: "no-cache" });
     if (r.ok) return (await r.json()) as ProfilData;
   } catch {}
   const r = await fetch("/data/profil.json");
