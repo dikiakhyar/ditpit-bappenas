@@ -13,14 +13,12 @@ import type { ProfilData } from "@/lib/profil/engine";
 import { buildDataset, type BuildStats } from "./build";
 
 export const SHEET_ID = process.env.DATABASE_SHEET_ID || "1Zq54xcuR-Ma9vGY6mQAdSbDwjUaPPDCezSMmeb6tIP4";
-export const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
 /** Umur cache (detik) sebelum spreadsheet dibaca ulang. */
 export const REFRESH_SECONDS = 300;
 
 export interface DataSourceInfo {
   kind: "spreadsheet" | "snapshot";
   fetchedAt: string; // ISO
-  sheetUrl: string;
   note?: string;
   stats?: BuildStats;
   /** true = salinan lokal sementara; spreadsheet sedang dibaca di latar belakang */
@@ -82,7 +80,7 @@ export async function loadDatabase(): Promise<Database> {
   try {
     const buf = await downloadWorkbook();
     const { data, stats } = await buildDataset(buf);
-    return { ...data, source: { kind: "spreadsheet", fetchedAt: new Date().toISOString(), sheetUrl: SHEET_URL, stats } };
+    return { ...data, source: { kind: "spreadsheet", fetchedAt: new Date().toISOString(), stats } };
   } catch (e) {
     const data = await readSnapshot();
     return {
@@ -90,7 +88,6 @@ export async function loadDatabase(): Promise<Database> {
       source: {
         kind: "snapshot",
         fetchedAt: new Date().toISOString(),
-        sheetUrl: SHEET_URL,
         note: `Spreadsheet tidak dapat dibaca (${(e as Error).message}). Menampilkan salinan lokal.`,
       },
     };
@@ -149,7 +146,7 @@ export async function getDatabaseFast(): Promise<{ db: Database; pending: Promis
   snapshot ??= readSnapshot()
     .then((d): Database => ({
       ...d,
-      source: { kind: "snapshot", fetchedAt: new Date().toISOString(), sheetUrl: SHEET_URL, refreshing: true, note: "Memuat data terbaru dari spreadsheet…" },
+      source: { kind: "snapshot", fetchedAt: new Date().toISOString(), refreshing: true, note: "Memuat data terbaru dari spreadsheet…" },
     }))
     .catch((e) => {
       snapshot = null;

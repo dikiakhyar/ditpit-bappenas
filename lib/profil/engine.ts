@@ -20,7 +20,7 @@ export interface ProfilData {
   meta: Record<string, { n: string; s: string }>;
   status: string[];
   /** Asal data (diisi oleh /api/database). */
-  source?: { kind: "spreadsheet" | "snapshot"; fetchedAt: string; sheetUrl: string; note?: string; refreshing?: boolean };
+  source?: { kind: "spreadsheet" | "snapshot"; fetchedAt: string; note?: string; refreshing?: boolean };
 }
 export type Better = "up" | "down" | 0;
 
@@ -200,7 +200,7 @@ async function fetchData(): Promise<ProfilData> {
   const r = await fetch("/data/profil.json");
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const d = (await r.json()) as ProfilData;
-  return { ...d, source: { kind: "snapshot", fetchedAt: new Date().toISOString(), sheetUrl: "", note: "API database tidak tersedia." } };
+  return { ...d, source: { kind: "snapshot", fetchedAt: new Date().toISOString(), note: "API database tidak tersedia." } };
 }
 export function loadProfil(): Promise<Engine> {
   if (!cache) {

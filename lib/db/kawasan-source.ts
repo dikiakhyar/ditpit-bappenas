@@ -6,13 +6,12 @@
 // Syarat: berkas dibagikan "Siapa saja yang memiliki link → Pelihat".
 // Ganti berkas tanpa mengubah kode: set env KAWASAN_SHEET_ID.
 
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { openWorkbook } from "./xlsx";
+// salinan lokal di-import (bukan dibaca dari disk) → otomatis ikut dibundel ke fungsi server Vercel
+import SNAPSHOT from "@/public/data/kawasan-prioritas.json";
 import { KP_COLUMNS, toCanonical, type KawasanRaw } from "@/lib/kawasan-prioritas";
 
 export const KAWASAN_SHEET_ID = process.env.KAWASAN_SHEET_ID || "1yGudSOtfKJ1qwDDHciuXbBYyov5hNoje";
-export const KAWASAN_SHEET_URL = `https://docs.google.com/spreadsheets/d/${KAWASAN_SHEET_ID}/edit`;
 export const KAWASAN_REFRESH_SECONDS = 300;
 /** nama sheet data; bila tak ada, dipakai sheet pertama yang punya header "Kode" & "Kabupaten/Kota" */
 const SHEET_NAME = "Daftar Kawasan";
@@ -57,14 +56,13 @@ function readSheet(buf: Uint8Array): string[][] {
 }
 
 async function readSnapshot(): Promise<KawasanRaw> {
-  const raw = await readFile(join(process.cwd(), "public", "data", "kawasan-prioritas.json"), "utf8");
-  return JSON.parse(raw) as KawasanRaw;
+  return SNAPSHOT as unknown as KawasanRaw;
 }
 
 async function load(): Promise<KawasanRaw> {
   try {
     const rows = readSheet(await download());
-    return { source: { kind: "spreadsheet", fetchedAt: new Date().toISOString(), sheetUrl: KAWASAN_SHEET_URL }, columns: KP_COLUMNS, rows };
+    return { source: { kind: "spreadsheet", fetchedAt: new Date().toISOString() }, columns: KP_COLUMNS, rows };
   } catch (e) {
     const snap = await readSnapshot();
     return {
@@ -72,7 +70,6 @@ async function load(): Promise<KawasanRaw> {
       source: {
         kind: "snapshot",
         fetchedAt: new Date().toISOString(),
-        sheetUrl: KAWASAN_SHEET_URL,
         note: `Spreadsheet tidak dapat dibaca (${(e as Error).message}). Menampilkan salinan lokal.`,
       },
     };

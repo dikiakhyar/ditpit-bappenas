@@ -1,5 +1,5 @@
 // Jalan Nasional (tab Layer peta tematik).
-// Sumber: components/JalanNasionalPIT.gpkg (1.017 ruas, atribut kd_ruas/nm_ruas/fungsi/panjang),
+// Sumber: data-sumber/JalanNasionalPIT.gpkg (1.017 ruas, atribut kd_ruas/nm_ruas/fungsi/panjang),
 // diolah oleh scripts/build-jalan-nasional.py → public/data/jalan-nasional.geojson:
 //  - tiap ruas dipotong menurut batas kab/kota peta (potongan kecil di garis pantai yang jatuh
 //    di luar poligon dimasukkan ke kab/kota terdekat), satu fitur = satu ruas × satu kab/kota;

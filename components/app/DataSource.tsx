@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { refreshDatabase, useProfil } from "@/lib/profil/useProfil";
-import { Icon } from "@/components/ui/icons";
 
 const time = (iso: string) =>
   new Date(iso).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -31,11 +30,6 @@ export default function DataSource({ compact }: { compact?: boolean }) {
       </div>
       {!live && src.note && !compact && <p className="mt-1">{src.note}</p>}
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-        {src.sheetUrl && (
-          <a href={src.sheetUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-            Buka spreadsheet <Icon name="arrowRight" className="h-3 w-3" />
-          </a>
-        )}
         <button
           disabled={busy}
           onClick={async () => {

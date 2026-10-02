@@ -1,6 +1,6 @@
 // Bangun data batas wilayah peta dari SHP kab/kota se-wilayah timur.
 //
-//   Masukan : components/KabKotaPIT.shp (+ .dbf/.shx/.prj) — kolom WADMKK (kab/kota), WADMPR (provinsi)
+//   Masukan : data-sumber/KabKotaPIT.shp (+ .dbf/.shx/.prj) — kolom WADMKK (kab/kota), WADMPR (provinsi)
 //             public/data/profil.json                       — daftar wilayah & kode BPS (Database PIT)
 //   Keluaran: public/data/wilayah.topo.json  — TopoJSON ringan: objek "kabkota" (kode, nama, provinsi)
 //                                              dan "provinsi" (kode, nama), batas bersama disimpan sekali
@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DATA = join(ROOT, "public", "data");
-const SHP = resolve(process.argv[2] ?? join(ROOT, "components", "KabKotaPIT.shp"));
+const SHP = resolve(process.argv[2] ?? join(ROOT, "data-sumber", "KabKotaPIT.shp"));
 
 // Tingkat penyederhanaan: titik-titik yang berjarak < INTERVAL meter dilebur.
 // 250 m tetap rapi hingga zoom ±9 (skala kab/kota) dan membuat file ±0,6 MB (±0,2 MB gzip).

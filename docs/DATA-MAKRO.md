@@ -73,7 +73,7 @@ Tambah satu entri di `MAKRO_CATEGORIES` (`lib/makro.ts`):
 ```
 
 ## Batas wilayah (poligon)
-Sumber: `components/KabKotaPIT.shp` — 176 kab/kota di 16 provinsi (Sulawesi, NTB, NTT, Maluku, Maluku Utara,
+Sumber: `data-sumber/KabKotaPIT.shp` — 176 kab/kota di 16 provinsi (Sulawesi, NTB, NTT, Maluku, Maluku Utara,
 seluruh Papua). SHP ±200 MB itu dikonversi menjadi file ringan yang dipakai situs:
 
 | File | Isi | Ukuran |

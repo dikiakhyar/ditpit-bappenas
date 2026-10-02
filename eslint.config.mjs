@@ -12,8 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Salinan lama Sprint 2 (arsip) — bukan bagian aplikasi, jangan ikut dicek.
-    "ditpit-dashboard-sprint2/**",
+    // data mentah GIS (lokal, tidak di-commit)
+    "data-sumber/**",
   ]),
 ]);
 

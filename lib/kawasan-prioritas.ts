@@ -38,7 +38,6 @@ export const KP_COLUMNS = ["No", "Provinsi", "Kategori Kawasan", "Kode", "Kelomp
 export interface KawasanSource {
   kind: "spreadsheet" | "snapshot";
   fetchedAt: string;
-  sheetUrl: string;
   note?: string;
 }
 export interface KawasanRaw {

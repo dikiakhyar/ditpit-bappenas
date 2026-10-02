@@ -44,10 +44,11 @@ next-env.d.ts
 # paket zip hasil unduhan/perbaikan yang diekstrak di root proyek
 /*.zip
 
-# SHP sumber batas wilayah (±200 MB, melebihi batas GitHub) — yang di-commit hasil konversinya
-# (public/data/wilayah.topo.json, darat.geojson). Lihat DATA-MAKRO.md.
+# Data sumber GIS mentah (SHP batas wilayah ±200 MB, GPKG jalan nasional ±64 MB) — terlalu besar
+# untuk GitHub dan tidak dipakai situs. Yang di-commit hasil konversinya di public/data/
+# (lihat docs/DATA-MAKRO.md & docs/DATABASE.md). Simpan berkas mentah di folder data-sumber/.
+/data-sumber/
+# lokasi lama (sebelum dirapikan) — tetap diabaikan agar tak ter-commit tanpa sengaja
 /components/KabKotaPIT.*
 
-# GPKG sumber Jalan Nasional (±64 MB) — yang di-commit hasil konversinya public/data/jalan-nasional.geojson
-# (dibangun ulang dengan scripts/build-jalan-nasional.py bila GPKG diperbarui).
 /components/JalanNasionalPIT.gpkg

@@ -280,9 +280,6 @@ function SumberKawasan() {
         <span className="font-medium">{live ? "Daftar kawasan: Google Spreadsheet" : "Daftar kawasan: salinan lokal"}</span>
         {live && <span className="text-muted">· dibaca {time(src.fetchedAt)}</span>}
       </div>
-      <a href={src.sheetUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline">
-        Buka spreadsheet <Icon name="arrowRight" className="h-3 w-3" />
-      </a>
       {kawasan.unmatched.length > 0 && (
         <p className="mt-1 text-muted" title={kawasan.unmatched.join("\n")}>
           {kawasan.unmatched.length} nama kab/kota tidak dikenali — periksa ejaan di spreadsheet.

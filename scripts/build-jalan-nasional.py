@@ -1,4 +1,4 @@
-"""Bangun public/data/jalan-nasional.geojson dari components/JalanNasionalPIT.gpkg.
+"""Bangun public/data/jalan-nasional.geojson dari data-sumber/JalanNasionalPIT.gpkg.
 
 Jalankan ulang bila GPKG diperbarui:
     pip install geopandas pyogrio shapely
@@ -21,7 +21,7 @@ import geopandas as gpd
 from shapely import force_2d
 from shapely.ops import linemerge, unary_union
 
-GPKG = "components/JalanNasionalPIT.gpkg"
+GPKG = "data-sumber/JalanNasionalPIT.gpkg"
 OUT = "public/data/jalan-nasional.geojson"
 # proyeksi sama-luas berpusat di wilayah timur — panjang dalam meter cukup akurat
 CEA = "+proj=cea +lon_0=128 +lat_ts=-3 +datum=WGS84 +units=m"
