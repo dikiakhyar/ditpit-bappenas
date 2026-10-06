@@ -50,6 +50,34 @@ Setiap sheet data memakai kolom: `region_code | province | regency | item | unit
   memakai kode **Kemendagri** yang sering berbeda dari kode BPS, jadi kab/kota dipasangkan lewat **nama**.
 - Diabaikan: Metadata, Metadata Non-BPS, Pivot Table 2, Sheet61, Sheet36, Progres, LPE_PDB_Unpivot, IDSD.
 
+## Lapangan usaha PDRB: sektor → sub-sektor → rincian
+Sembilan sheet PDRB — `ADHB`, `ADHK`, `Distribusi ADHB`, `LPE`, `LPE Triwulan (yoy)`, `LPE Triwulan (qtoq)`,
+`LPE Triwulan (ctoc)`, `Triwulan ADHB`, `Triwulan ADHK` — menaruh sektor, sub-sektor, dan rincian sebagai baris `item`
+yang sejajar. Situs menyusunnya lewat `lib/profil/sektor.ts` dan menampilkannya di kartu **PDRB menurut lapangan usaha**
+(Profil → Ekonomi; pilih ukuran dan periode, klik panah untuk membuka sub-sektor).
+- **Sektor** = baris berkode huruf (`A …`, `M,N …`, `R,S,T,U …`). Nilainya **selalu diambil dari baris sektor itu
+  sendiri**, tidak dijumlah dari sub-sektor (laju pertumbuhan tidak bisa dijumlah). Jadi baris sektor wajib ada.
+- **Sub-sektor** dikenali dari namanya (daftar `SUSUNAN` di `lib/profil/sektor.ts`; huruf besar-kecil & tanda baca bebas).
+  Menambah/mengganti nama sub-sektor di spreadsheet → perbarui daftar itu, kalau tidak barisnya tidak tampil.
+- **Sektor A bertingkat tiga**: `Pertanian, Peternakan, Perburuan, dan Jasa Pertanian` adalah sub-sektor yang masih punya
+  rincian (Tanaman Pangan, Tanaman Hortikultura, Tanaman Perkebunan, Peternakan, Jasa Pertanian dan Perburuan).
+  A = sub-sektor itu + Kehutanan dan Penebangan Kayu + Perikanan.
+- **R,S,T,U Jasa Lainnya tidak punya sub-sektor.** `Nilai Tambah Bruto Atas Harga Dasar` dan `Pajak Dikurang Subsidi
+  Atas Produk` adalah **baris total** (PDB = NTB + pajak dikurang subsidi), sejajar dengan `Produk Domestik Bruto` —
+  bukan bagian dari Jasa Lainnya. `Industri Pengolahan Non Migas` adalah subtotal di dalam sektor C. Baris total/subtotal
+  tidak ditampilkan sebagai lapangan usaha.
+- **Tanda "rincian ≠ total"** muncul bila jumlah sub-sektor berbeda > 2% dari nilai sektornya (hanya untuk nilai rupiah
+  dan distribusi). Itu pertanda angka di spreadsheet perlu diperiksa.
+- Sub-sektor yang tidak ada di suatu provinsi (mis. Pertambangan Batubara) dihitung 0 pada agregat Indonesia Timur
+  selama provinsi itu punya sub-sektor lain di sektor yang sama.
+
+## Peringkat
+- **Se-provinsi**: kab/kota terhadap kab/kota lain di provinsinya; provinsi terhadap seluruh provinsi.
+- **Se-Indonesia Timur**: kab/kota terhadap **seluruh kab/kota di database** pada periode yang sama (nilai sama →
+  peringkat sama). Database hanya memuat kawasan timur, jadi ini **bukan** peringkat se-Indonesia; menambah kab/kota
+  provinsi lain ke spreadsheet otomatis memperluas pembandingnya. Tampil di kartu metrik (keterangan + tampilan
+  *Peringkat → Se-Indonesia Timur*), kartu ringkasan, dan tooltip/panel Peta Tematik.
+
 ## Nilai kosong ≠ 0
 Sel kosong, `N/A`, `-` di spreadsheet dibaca sebagai **tidak ada data** dan tampil sebagai "Tidak ada data" di situs
 (kartu, tabel, tooltip peta, panel). Angka 0 hanya tampil bila selnya memang berisi 0. Jadi bila di spreadsheet sebuah

@@ -21,6 +21,7 @@ export function Tiles({ E, sel, compact }: { E: Engine; sel: string; compact?: b
           );
         const L = E.latestOf(t.s, pk.code, t.i)!;
         const rk = E.rankInfo(t.s, t.i, pk.code, L.per, t.b);
+        const rkAll = E.rankKawasan(t.s, t.i, pk.code, L.per, t.b);
         return (
           <div key={t.l} className={`card ${compact ? "px-3 py-2.5" : "px-4 py-3.5"}`}>
             <div className="flex items-start justify-between gap-2">
@@ -32,8 +33,14 @@ export function Tiles({ E, sel, compact }: { E: Engine; sel: string; compact?: b
               <span className="font-mono">{L.per}</span>
               <Delta L={L} f={t.f} b={t.b} g={t.g} compact />
               {rk && rk.rank > 0 && !!t.b && !compact && (
-                <span>
+                <span title={`Peringkat ${rk.rank} dari ${rk.n} ${E.peerWord(pk.code)}`}>
                   Peringkat {rk.rank}/{rk.n}
+                  {rkAll ? " prov." : ""}
+                </span>
+              )}
+              {rkAll && !!t.b && !compact && (
+                <span title={`Peringkat ${rkAll.rank} dari ${rkAll.n} ${E.kawasanWord}`}>
+                  {rkAll.rank}/{rkAll.n} kawasan
                 </span>
               )}
             </div>

@@ -15,7 +15,7 @@ import { onMap } from "@/lib/wilayah";
 import { KAWASAN } from "@/lib/profil/kawasan";
 import { TipProvider } from "./charts";
 import { Tiles as TilesRaw } from "./Tiles";
-import { ApbdCard, CommodCard, ComposeCard, DesaCard, IppCard, MetricCard, MultiCard, StackCard, WisataCard } from "./cards";
+import { ApbdCard, CommodCard, ComposeCard, DesaCard, IppCard, MetricCard, MultiCard, SektorCard, StackCard, WisataCard } from "./cards";
 
 const LS_KEY = "pdit-sel";
 const DEFAULT = "5300";
@@ -398,7 +398,14 @@ function Profil({ E, sel, choose }: { E: Engine; sel: string; choose: Choose }) 
                 <li>Rasio APBD dihitung ulang dari sheet Postur APBD agar provinsi dan kab/kota dapat dibandingkan dengan cara yang sama.</li>
                 <li>Indeks Desa diagregasi dari data per desa: jumlah desa per status dan rata-rata skor per dimensi.</li>
                 <li>Sheet IDSD tidak ditampilkan karena identik dengan Indeks Integritas; Rasio Tenaga Kesehatan dan Rasio STR tidak ditampilkan karena satuannya belum jelas.</li>
-                <li>Peringkat dihitung terhadap kab/kota lain di provinsi yang sama, atau terhadap seluruh provinsi untuk tampilan provinsi, pada periode yang sama.</li>
+                <li>
+                  Peringkat dihitung pada periode yang sama: kab/kota terhadap kab/kota lain di provinsinya dan terhadap seluruh kab/kota di database
+                  (se-Indonesia Timur — bukan se-Indonesia, karena database hanya memuat kawasan timur); provinsi terhadap seluruh provinsi.
+                </li>
+                <li>
+                  Lapangan usaha PDRB disusun sektor (A–U) → sub-sektor → rincian. Nilai sektor diambil dari baris sektornya di spreadsheet, tidak dijumlah
+                  dari sub-sektor; rincian sub-sektor hanya tersedia di tingkat provinsi.
+                </li>
                 <li>
                   Indonesia Timur = agregat seluruh provinsi: besaran dijumlahkan, rasio/indeks ditimbang jumlah penduduk (dihitung dari PDRB ÷ PDRB per kapita),
                   pertumbuhan ditimbang PDRB. Sel kosong di spreadsheet ditampilkan sebagai <i>Tidak ada data</i>, bukan 0.
@@ -435,6 +442,8 @@ const CardSwitch = memo(function CardSwitch({ E, cd, sel }: { E: Engine; cd: Car
       return <CommodCard E={E} sel={sel} />;
     case "wisata":
       return <WisataCard E={E} sel={sel} />;
+    case "sektor":
+      return <SektorCard E={E} sel={sel} />;
   }
 });
 

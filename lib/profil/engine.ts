@@ -154,6 +154,31 @@ export function createEngine(D: ProfilData) {
     const sorted = rows.slice().sort((a, z) => (b === "down" ? a.v - z.v : z.v - a.v));
     return { rank: sorted.findIndex((r) => r.c === code) + 1, n: rows.length, rows };
   };
+  /**
+   * Peringkat kab/kota di antara SELURUH kab/kota di database (lintas provinsi), pada periode
+   * yang sama. Database hanya memuat kawasan Indonesia Timur, jadi ini peringkat se-kawasan —
+   * bukan se-Indonesia. Nilai sama → peringkat sama. Kab/kota yang tercatat dengan dua kode
+   * (kode lama/baru pemekaran Papua) dihitung sekali. Provinsi/kawasan → null.
+   */
+  const rankKawasan = (s: string, item: string | null | undefined, code: string, per: string, b: Better): RankInfo | null => {
+    if (isProv(code) || code === "0") return null;
+    const me = valAt(s, code, item, per);
+    if (!isN(me)) return null;
+    const rows: { c: string; v: number }[] = [{ c: code, v: me }];
+    const seen = new Set([name(code)]);
+    for (const c of allKabs()) {
+      if (c === code || seen.has(name(c))) continue;
+      const v = valAt(s, c, item, per);
+      if (!isN(v)) continue;
+      seen.add(name(c));
+      rows.push({ c, v });
+    }
+    if (rows.length < 2) return null;
+    const better = rows.filter((r) => (b === "down" ? r.v < me : r.v > me)).length;
+    return { rank: better + 1, n: rows.length, rows };
+  };
+  /** Sebutan pembanding peringkat se-kawasan, mis. "kab/kota se-Indonesia Timur". */
+  const kawasanWord = `kab/kota se-${KAWASAN_NAMA}`;
   /** Kode yang punya data: kab/kota sendiri, atau jatuh ke provinsinya. */
   const pickCode = (s: string, item: string | null | undefined, code: string, pf?: RegExp) => {
     if (latestOf(s, code, item, pf)) return { code, fb: false };
@@ -183,7 +208,7 @@ export function createEngine(D: ProfilData) {
   return {
     source: D.source,
     has, name, isProv, isKawasan, provOf, PROVS, kabsOf, allKabs, peersOf, peerWord,
-    sheet, ser, pmask, latestOf, valAt, rankInfo, pickCode, composeRows, meta, desa, coverage,
+    sheet, ser, pmask, latestOf, valAt, rankInfo, rankKawasan, kawasanWord, pickCode, composeRows, meta, desa, coverage,
   };
 }
 export type Engine = ReturnType<typeof createEngine>;

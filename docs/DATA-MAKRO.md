@@ -8,7 +8,8 @@ tidak ada lagi `makro.json`. Katalog indikator ada di `lib/makro.ts`:
 - Tahun yang tampil = tahun yang benar-benar terisi untuk kab/kota di peta.
 - Indikator tanpa data kab/kota otomatis disembunyikan (mis. listrik PLN & imunisasi yang hanya tingkat provinsi).
 - Peringkat = urutan di antara seluruh kab/kota se-provinsi di database (1 = terbaik menurut arah "baik"),
-  sama dengan halaman Profil Daerah.
+  sama dengan halaman Profil Daerah. Tooltip dan panel Wilayah juga menampilkan peringkat **se-Indonesia Timur**
+  (di antara seluruh kab/kota di database; bukan se-Indonesia).
 - Legenda memakai kelas kuantil (6 kelas) + "Tidak ada data".
 
 ## Warna sesuai konteks

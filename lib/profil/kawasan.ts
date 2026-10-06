@@ -12,11 +12,16 @@
 //   • % miskin   — Σ penduduk miskin ÷ Σ (penduduk miskin ÷ %miskin).
 //   • rata-rata  — persen/indeks/rasio lain: rata-rata tertimbang JUMLAH PENDUDUK provinsi.
 //                  Boleh bila provinsi berdata mencakup ≥ 90% penduduk kawasan.
+//   • sub-sektor PDRB — provinsi yang tidak punya baris sub-sektor tertentu padahal punya
+//                  sub-sektor lain di sektor yang sama (mis. "Angkutan Rel" hanya ada di
+//                  Sulawesi Selatan) dihitung 0 untuk sub-sektor itu, bukan "tidak ada data".
+//                  Provinsi yang rincian sektornya kosong sama sekali tetap "tidak ada data".
 //   • tidak diagregasi — teks/kategori (mis. nilai IPP, kategori RKFD) dan "Rasio APBD"
 //                  (dihitung ulang dari Postur APBD gabungan oleh engine).
 
 import { isN, type Cell } from "./format";
 import type { Sheet, ProfilData } from "./engine";
+import { SHEET_SEKTOR, saudaraSektor } from "./sektor";
 
 export const KAWASAN = "KTI";
 export const KAWASAN_NAMA = "Indonesia Timur";
@@ -116,10 +121,20 @@ export function buildKawasan(
     for (const item of items) {
       const m = methodOf(name, item, sh.u);
       if (!m) continue;
+      // sub-sektor PDRB: baris yang tak ada di sebuah provinsi = 0 bila saudaranya ada (lihat kepala berkas)
+      const sib = SHEET_SEKTOR.has(name) ? saudaraSektor(item) : null;
+      const absent = (s: Sheet | undefined, c: string, k: number) => !!sib && !!s && k >= 0 && sib.some((x) => isN(s.r[c]?.[x]?.[k]));
       const series: Cell[] = sh.p.map((per, i) => {
-        const vs = provs.map((c) => {
+        /** provinsi yang nilainya diisi 0 karena kegiatannya tidak ada */
+        const nol = provs.map(() => false);
+        const vs = provs.map((c, k) => {
           const v = sh.r[c]?.[item]?.[i];
-          return isN(v) ? v : null;
+          if (isN(v)) return v;
+          if (absent(sh, c, i)) {
+            nol[k] = true;
+            return 0;
+          }
+          return null;
         });
         const all = vs.every(isN);
         switch (m) {
@@ -142,6 +157,7 @@ export function buildKawasan(
             const prev = prevLabel(name, per);
             let num = 0, den = 0;
             for (let k = 0; k < provs.length; k++) {
+              if (nol[k]) continue; // kegiatan tidak ada di provinsi ini → bobot 0
               const v = vs[k];
               const w = (prev && val(lvlSheet, provs[k], item || PDB, prev)) ?? val(lvlSheet, provs[k], item || PDB, per);
               if (!isN(v) || !isN(w) || w <= 0) return null;
@@ -152,8 +168,9 @@ export function buildKawasan(
           }
           case "share": {
             let num = 0, den = 0;
+            const lv = S["ADHB"], li = lv ? lv.p.indexOf(per) : -1;
             for (const c of provs) {
-              const a = val("ADHB", c, item, per), t = val("ADHB", c, PDB, per);
+              const a = val("ADHB", c, item, per) ?? (absent(lv, c, li) ? 0 : null), t = val("ADHB", c, PDB, per);
               if (!isN(a) || !isN(t)) return null;
               num += a;
               den += t;

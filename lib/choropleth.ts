@@ -5,6 +5,7 @@ import {
   findIndicator,
   valueKey,
   rankKey,
+  rankAllKey,
   getNumber,
   getRaw,
   resolvePalette,
@@ -31,7 +32,7 @@ export const NAME_PROP = "nama";
 export const PROV_PROP = "provinsi";
 
 export interface Baked {
-  geo: Geo; // FeatureCollection dengan properti __v/__c/__rank
+  geo: Geo; // FeatureCollection dengan properti __v/__c/__rank/__rankAll
   ind: Indicator;
   numeric: boolean;
   breaks: number[]; // batas kuantil (numeric)
@@ -65,6 +66,7 @@ export function bake(
   const numeric = (ind.kind ?? "numeric") === "numeric";
   const vKey = valueKey(indId, year);
   const rKey = rankKey(indId, year);
+  const rAllKey = rankAllKey(indId, year);
 
   const nums: number[] = [];
   const present = new Set<string>();
@@ -92,6 +94,8 @@ export function bake(
     }
     const rank = getRaw(row, rKey);
     if (rank !== null && rank !== undefined && rank !== "") props.__rank = rank;
+    const rankAll = getRaw(row, rAllKey);
+    if (rankAll !== null && rankAll !== undefined && rankAll !== "") props.__rankAll = rankAll;
     return { ...f, properties: props };
   });
 

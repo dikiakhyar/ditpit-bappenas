@@ -324,11 +324,16 @@ export function findIndicator(id: string, catalog: MakroCategory[] = MAKRO_CATEG
 // ── kunci data ───────────────────────────────────────────────────────────────
 //   nilai  → `${id}_${tahun}`         (mis. "tpt_2025")
 //   peringkat provinsi → + "__rank"   (mis. "tpt_2025__rank")
+//   peringkat se-kawasan (seluruh kab/kota di database) → + "__rankall"
 export function valueKey(id: string, year?: number | null): string {
   return year ? `${id}_${year}` : id;
 }
 export function rankKey(id: string, year?: number | null): string {
   return `${valueKey(id, year)}__rank`;
+}
+
+export function rankAllKey(id: string, year?: number | null): string {
+  return `${valueKey(id, year)}__rankall`;
 }
 
 export type MakroRow = Record<string, number | string | null>;
@@ -347,6 +352,8 @@ export function getRaw(row: MakroRow | undefined, key: string): number | string 
  * Hitung nilai + peringkat semua indikator untuk kab/kota `codes` (poligon peta)
  * dari database. Peringkat = urutan di antara SEMUA kab/kota se-provinsi di
  * database (1 = terbaik menurut `sense`), sama dengan halaman Profil Daerah.
+ * Peringkat se-kawasan = urutan di antara seluruh kab/kota provinsi-provinsi tsb
+ * (database hanya memuat Indonesia Timur, jadi bukan peringkat se-Indonesia).
  * Mengembalikan juga katalog yang sudah disaring: hanya indikator & tahun berdata.
  */
 export function buildMakro(E: Engine, codes: string[]): { data: MakroData; catalog: MakroCategory[] } {
@@ -363,6 +370,7 @@ export function buildMakro(E: Engine, codes: string[]): { data: MakroData; catal
       const years: number[] = [];
       for (const y of ind.src.years(E)) {
         let any = false;
+        const semua: { c: string; v: number }[] = [];
         for (const [p, peers] of peersByProv) {
           const vals: { c: string; v: Val }[] = [];
           for (const c of peers) {
@@ -381,8 +389,18 @@ export function buildMakro(E: Engine, codes: string[]): { data: MakroData; catal
             const nums = vals.filter((x): x is { c: string; v: number } => isNum(x.v));
             nums.sort((a, b) => (ind.sense === "low" ? a.v - b.v : b.v - a.v));
             for (const x of nums) if (onMap.has(x.c)) data[x.c][rankKey(ind.id, y)] = 1 + nums.findIndex((z) => z.v === x.v);
+            semua.push(...nums);
           }
           void p;
+        }
+        if (semua.length > 1) {
+          // nilai sama → peringkat sama (1 + banyaknya wilayah yang lebih baik)
+          const sorted = semua.map((x) => x.v).sort((a, b) => (ind.sense === "low" ? a - b : b - a));
+          const rankOf = new Map<number, number>();
+          sorted.forEach((v, i) => {
+            if (!rankOf.has(v)) rankOf.set(v, i + 1);
+          });
+          for (const x of semua) if (onMap.has(x.c)) data[x.c][rankAllKey(ind.id, y)] = rankOf.get(x.v)!;
         }
         if (any) years.push(y);
       }

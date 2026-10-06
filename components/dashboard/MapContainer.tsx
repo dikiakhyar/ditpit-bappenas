@@ -517,7 +517,9 @@ export default function MapContainer() {
     else if (p.__c) valLine = String(p.__c);
     const rank =
       p.__rank != null
-        ? `<div class="mlp-rank">Peringkat Provinsi: <b>#${String(p.__rank)}</b></div>`
+        ? `<div class="mlp-rank">Peringkat Provinsi: <b>#${String(p.__rank)}</b>${
+            p.__rankAll != null ? ` · Indonesia Timur: <b>#${String(p.__rankAll)}</b>` : ""
+          }</div>`
         : "";
     const yr = latest.current.makroSel.year ? ` · ${latest.current.makroSel.year}` : "";
     const html = `

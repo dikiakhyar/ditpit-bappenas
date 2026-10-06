@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/icons";
 import { useProfil } from "@/lib/profil/useProfil";
 import { TipProvider } from "@/components/profil/charts";
 import { Tiles } from "@/components/profil/Tiles";
-import { findIndicator, formatValue, getNumber, getRaw, rankKey, valueKey } from "@/lib/makro";
+import { findIndicator, formatValue, getNumber, getRaw, rankAllKey, rankKey, valueKey } from "@/lib/makro";
 import { MAP_PROV_CODES, namaWilayah, isProvCode, provOfCode, isKawasan, KAWASAN, KAWASAN_NAMA } from "@/lib/wilayah";
 import KawasanSummary from "./KawasanSummary";
 import { nf } from "@/lib/profil/format";
@@ -36,6 +36,7 @@ export default function StatsPanel() {
   const vKey = valueKey(makroSel.indId, makroSel.year);
   const mv = found && (found.ind.kind ?? "numeric") === "numeric" ? formatValue(getNumber(row, vKey), found.ind.format) : String(getRaw(row, vKey) ?? "Tidak ada data");
   const rank = getRaw(row, rankKey(makroSel.indId, makroSel.year));
+  const rankAll = getRaw(row, rankAllKey(makroSel.indId, makroSel.year));
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -98,7 +99,12 @@ export default function StatsPanel() {
                   {makroSel.year ? ` · ${makroSel.year}` : ""}
                 </p>
                 <p className="tnum text-[18px] font-bold">{mv}</p>
-                {rank != null && rank !== "" && <p className="text-[12px] text-ink-2">Peringkat provinsi #{String(rank)}</p>}
+                {rank != null && rank !== "" && (
+                  <p className="text-[12px] text-ink-2">
+                    Peringkat provinsi #{String(rank)}
+                    {rankAll != null && rankAll !== "" && <> · Indonesia Timur #{String(rankAll)}</>}
+                  </p>
+                )}
               </div>
             )}
           </div>

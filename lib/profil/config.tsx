@@ -66,7 +66,7 @@ export interface StackDef extends Base {
   counts?: string;
 }
 export interface SpecialDef extends Base {
-  t: "apbd" | "desa" | "ipp" | "commod" | "wisata";
+  t: "apbd" | "desa" | "ipp" | "commod" | "wisata" | "sektor";
 }
 export type CardDef = MetricDef | ComposeDef | MultiDef | StackDef | SpecialDef;
 
@@ -84,12 +84,6 @@ export const SECTIONS: SectionDef[] = [
   { id: "potensi", title: "Potensi Unggulan", icon: "package", desc: "Produksi komoditas unggulan dan fasilitas pariwisata." },
 ];
 
-const stripSector = (s: string) =>
-  s
-    .replace(/^[A-U](,[A-U])*\s+/, "")
-    .replace(/ Mo$/, " Motor")
-    .replace(/Sampah, Limbah, dan Daur Ulang$/, "Sampah & Limbah")
-    .replace(/\s+$/, "");
 const th = (d = 2): Fmt => ({ d, suf: " th", du: " th" });
 const x100: Fmt = { k: 100, d: 1, suf: " %" };
 
@@ -103,7 +97,8 @@ export const CARDS: CardDef[] = [
   { sec: "ekonomi", t: "metric", s: "LPE", i: "Produk Domestik Bruto", title: "Laju pertumbuhan ekonomi", d: "Pertumbuhan PDRB atas dasar harga konstan, persen per tahun.", f: pct2, b: "up", zero: true },
   { sec: "ekonomi", t: "metric", s: "ADHB", i: "Produk Domestik Bruto", title: "PDRB atas dasar harga berlaku", d: "Nilai total PDRB atas dasar harga berlaku.", f: { rp: true }, b: "up", g: true, lvl: true },
   { sec: "ekonomi", t: "metric", s: "ADHB Per Kapita", i: "", title: "PDRB per kapita", d: "PDRB per kapita atas dasar harga berlaku, per tahun.", f: { k: 0.001, pre: "Rp ", suf: " jt", d: 1, du: " jt" }, b: "up", g: true },
-  { sec: "ekonomi", t: "compose", s: "Distribusi ADHB", title: "Struktur PDRB menurut lapangan usaha", d: "Distribusi PDRB harga berlaku. Penanda emas: angka provinsi.", f: pct1, ex: ["Produk Domestik Bruto"], lab: stripSector, top: 8 },
+  // sektor (A–U) → sub-sektor → rincian dari 9 sheet PDRB; susunannya di lib/profil/sektor.ts
+  { sec: "ekonomi", t: "sektor", wide: true },
   { sec: "ekonomi", t: "metric", s: "Kontribusi PDRB", i: "", title: "Kontribusi PDRB", d: "Kab/kota: porsi terhadap PDRB provinsi. Provinsi: porsi terhadap PDB nasional.", f: pct2, b: "up", nocmp: true },
   { sec: "ekonomi", t: "metric", s: "LPE Triwulan (yoy)", i: "Produk Domestik Bruto", title: "Pertumbuhan triwulanan (y-on-y)", d: "Pertumbuhan PDRB triwulanan dibanding triwulan yang sama tahun lalu.", f: pct2, b: "up", pf: /^T/, zero: true },
   { sec: "ekonomi", t: "metric", s: "LPE Triwulan (qtoq)", i: "Produk Domestik Bruto", title: "Pertumbuhan triwulanan (q-to-q)", d: "Pertumbuhan PDRB dibanding triwulan sebelumnya. Wajar naik-turun mengikuti musim.", f: pct2, b: "up", pf: /^T/, zero: true },
